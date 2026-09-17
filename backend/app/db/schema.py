@@ -268,4 +268,19 @@ agent_runs = Table(
     Column("finished_at", DateTime, nullable=True),
 )
 
+
+# The mock supplier's OWN record of what it has accepted, deliberately kept in a
+# separate table from our purchase_orders. That separation is what makes the
+# idempotency story real: after an ambiguous timeout we can ask the supplier what
+# it actually recorded, rather than guessing from our own side of the boundary.
+supplier_ledger = Table(
+    "supplier_ledger", metadata,
+    Column("idempotency_key", String, primary_key=True),
+    Column("external_ref", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("request_json", Text, nullable=False, default="{}"),
+    Column("response_json", Text, nullable=False, default="{}"),
+    Column("created_at", DateTime, server_default=func.now()),
+)
+
 ALL_TABLES = list(metadata.tables.keys())
