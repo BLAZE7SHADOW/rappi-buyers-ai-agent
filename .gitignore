@@ -9,6 +9,8 @@ venv/
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Env / secrets
