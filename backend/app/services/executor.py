@@ -270,7 +270,16 @@ def _commit_budget(conn, node_id: str, period: str, candidate: Candidate) -> Non
         )
     ).mappings().first()
     if row is None:
-        return
+        # Unreachable through the normal path -- a missing budget is blocking at
+        # the constraint layer, so the plan is refused before the supplier is
+        # called. This covers the remaining window: the supplier has committed and
+        # the spend cannot be recorded. Returning quietly would leave a real order
+        # with untracked money, so it is the same class of failure as the lost
+        # optimistic update below.
+        raise ActionOutcomeUnknown(
+            f"No budget exists for {node_id}/{period}; the committed spend of "
+            f"{cost} minor units could not be recorded."
+        )
     updated = conn.execute(
         s.budgets.update()
         .where(s.budgets.c.id == row["id"], s.budgets.c.version == row["version"])

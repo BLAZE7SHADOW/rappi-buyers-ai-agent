@@ -330,3 +330,51 @@ def test_keep_plan_resolves_without_ordering_anything(db):
     with transaction() as conn:
         actions = conn.execute(select(sch.actions)).mappings().all()
     assert actions == []
+
+
+def test_spend_that_cannot_be_recorded_raises_instead_of_being_skipped(db):
+    """Defence in depth for the last write in an execution.
+
+    A missing budget is already blocking at the constraint layer, so a plan whose
+    budget disappears is refused as infeasible long before the supplier is called.
+    This guard covers the remaining window: the supplier has committed, and the
+    commitment cannot be written locally. Returning quietly there would leave a
+    real order with untracked spend, so it raises and the caller escalates for
+    reconciliation rather than reporting a clean execution.
+    """
+    from app.db import schema as sch
+    from app.db.engine import transaction
+    from app.domain.types import ActionType, Candidate
+    from app.services.executor import ActionOutcomeUnknown, _commit_budget
+
+    candidate = Candidate(action_type=ActionType.CREATE_PO, supplier_id="SUP-A",
+                          qty=500, unit_price_minor=100)
+    assert candidate.total_cost_minor > 0
+
+    with transaction() as conn:
+        conn.execute(sch.budgets.delete())
+        with pytest.raises(ActionOutcomeUnknown):
+            _commit_budget(conn, "NODE-BOG", "2026-09", candidate)
+
+
+def test_a_budget_that_disappears_is_caught_before_the_supplier_is_called(db):
+    from app.db import schema as sch
+    from app.db.engine import transaction
+    from app.services.proposals import StalePlan, approve
+
+    # 2,500 units at $1.00 is $2,500, above the $2,000 autonomy limit, so the
+    # buyer decides -- and the revalidation happens on their approval.
+    case_id = make_case(budget_minor=900_000, po=None, demand_per_day=100,
+                        expedite=False, unit_price=100)
+    result = _propose(db, case_id, disposition="accept", action_type="create_po",
+                      args=create_po_args(qty=2500))
+    assert result["approval_required"] is True
+    with transaction() as conn:
+        conn.execute(sch.budgets.delete())
+
+    with pytest.raises(StalePlan):
+        approve(case_id, result["proposal_id"])
+
+    with transaction() as conn:
+        assert conn.execute(select(sch.actions)).mappings().all() == []
+        assert conn.execute(select(sch.supplier_ledger)).mappings().all() == []
