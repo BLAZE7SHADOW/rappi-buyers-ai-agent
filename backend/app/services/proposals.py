@@ -119,7 +119,19 @@ def create_proposal(
     simulation = simulate(ctx, candidate)
     gaps = missing_evidence(ctx)
     sensitivity = unconfirmed_signal(case, ctx)
-    decision = gate_mod.evaluate(simulation, missing_evidence=gaps, sensitivity=sensitivity)
+
+    # An input the buyer has already ruled on is no longer unresolved. Without
+    # this the gate would keep citing a question that has been answered, and a
+    # replan could stop the case for it a second time.
+    answered = conn.execute(
+        select(s.interactions).where(
+            s.interactions.c.case_id == case["case_id"],
+            s.interactions.c.answer.is_not(None),
+        )
+    ).mappings().first()
+    unresolved = None if answered else sensitivity
+
+    decision = gate_mod.evaluate(simulation, missing_evidence=gaps, sensitivity=unresolved)
 
     proposal_id = f"PROP-{uuid.uuid4().hex[:8].upper()}"
     prior = conn.execute(
@@ -167,7 +179,8 @@ def create_proposal(
                   "disposition": disposition, "action_type": action_type,
                   "gate": decision.to_dict(), "simulation": sim_dict,
                   "missing_evidence": gaps,
-                  "sensitivity": sensitivity.to_dict() if sensitivity else None})
+                  "sensitivity": ({**sensitivity.to_dict(), "resolved": bool(answered)}
+                                  if sensitivity else None)})
 
     new_state = ("investigating" if decision.blocked
                  else "awaiting_approval" if decision.approval_required
@@ -185,13 +198,7 @@ def create_proposal(
                 s.interactions.c.answer.is_(None),
             )
         ).mappings().first()
-        answered = conn.execute(
-            select(s.interactions).where(
-                s.interactions.c.case_id == case["case_id"],
-                s.interactions.c.answer.is_not(None),
-            )
-        ).mappings().first()
-        if already_open is None and answered is None:
+        if already_open is None:
             open_question(
                 conn, case["case_id"],
                 question=sensitivity.question(),

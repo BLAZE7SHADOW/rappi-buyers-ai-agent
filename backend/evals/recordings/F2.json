@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current usable inventory levels, stock breakdown, and snapshot age for SKU-1002 at NODE-BOG-F2."
+            "reason": "Check current stock levels and usability for SKU-1002 at NODE-BOG-F2."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check for any incoming purchase orders for SKU-1002 that are currently open or overdue."
+            "reason": "Check existing open purchase orders to see incoming inventory and delivery dates."
           }
         }
       ]
@@ -39,7 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Retrieve available supplier quotes, prices, Lead times, MOQs, and pack sizes for SKU-1002."
+            "reason": "Check available supplier options, pricing, lead times, MOQs, and expedite options."
           }
         }
       ]
@@ -50,7 +50,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check available budget, storage capacity, and buyer approval autonomy thresholds."
+            "reason": "Check available budget, dated storage headroom, and purchasing autonomy limits."
           }
         }
       ]
@@ -61,8 +61,8 @@
         {
           "name": "get_demand_evidence",
           "args": {
-            "lookback_days": 14,
-            "reason": "Check daily demand forecast and recent actual sales history for SKU-1002."
+            "reason": "Check forecast demand, recent sales history, and any stockouts or promotions.",
+            "lookback_days": 14
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate baseline keep_plan and candidate purchasing options to evaluate demand coverage, stockouts, max days of cover, and feasibility."
+            "reason": "Compare baseline plan against potential options to evaluate overall feasibility and metrics."
           }
         }
       ]
@@ -84,11 +84,11 @@
         {
           "name": "simulate_plan",
           "args": {
-            "action_type": "create_po",
-            "supplier_id": "SUP-A",
             "expected_receipt_date": "2026-09-24",
-            "reason": "Evaluate creating a purchase order for 800 units from SUP-A arriving on 2026-09-24.",
-            "qty": 800
+            "reason": "Test if ordering 700 units would also fulfill demand or leave inventory below safety stock.",
+            "supplier_id": "SUP-A",
+            "action_type": "create_po",
+            "qty": 700
           }
         }
       ]
@@ -100,30 +100,29 @@
           "name": "propose_plan",
           "args": {
             "action_args": {
+              "expected_receipt_date": "2026-09-24",
               "qty": 800,
-              "supplier_id": "SUP-A",
-              "expected_receipt_date": "2026-09-24"
+              "supplier_id": "SUP-A"
             },
+            "important_factors": [
+              "Usable inventory of 380 units leaves 600 units of baseline unmet demand over the 28-day horizon",
+              "First stockout projected for 2026-09-27 without purchase",
+              "Ordering 800 units from SUP-A arrives on 2026-09-24, fully resolving unmet demand",
+              "Closing inventory ends at 200 units, matching safety stock target",
+              "Total cost of $9,600.00 is feasible within $20,000.00 available budget"
+            ],
+            "rationale": "The baseline projection indicates usable stock of 380 units against a 28-day demand forecast of 980 units (35 units/day), resulting in 600 total unmet units and a first stockout date on 2026-09-27. Ordering 800 units from supplier SUP-A at $12.00 per unit ($9,600.00 total) with a 7-day lead time results in expected receipt on 2026-09-24, prior to the stockout date. This action eliminates all 600 units of unmet demand, maintains peak storage occupancy at 38.7 m\u00b3 (well within the 200.0 m\u00b3 limit), and leaves closing inventory at 200 units (matching safety stock policy). While the total spend of $9,600.00 exceeds the $2,000.00 autonomy spend limit and requires buyer approval, it is fully feasible within the available budget of $20,000.00.",
+            "action_type": "create_po",
+            "disposition": "accept",
+            "assumptions": [],
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
-              "get_open_orders",
+              "get_demand_evidence",
               "get_supplier_options",
               "get_constraints",
-              "get_demand_evidence",
               "simulate_plan"
-            ],
-            "action_type": "create_po",
-            "rationale": "The recommendation to purchase 800 units of SKU-1002 is accepted. Current usable inventory is 380 units with no open purchase orders. Daily forecasted demand is 35 units/day (980 units total over 28 days). Without new stock, a stockout occurs on 2026-09-27, leading to 600 units of unmet demand. Ordering 800 units from SUP-A at $12.00 per unit for arrival on 2026-09-24 fulfills all demand and leaves 200 units of closing inventory (5.7 days of cover). The order total is $9,600.00, which is feasible within the $20,000.00 available budget and 200 m\u00b3 storage capacity limit, but requires buyer approval as it exceeds the $2,000.00 autonomy spend limit.",
-            "important_factors": [
-              "Usable inventory is 380 units with no open purchase orders.",
-              "Total forecasted demand across the 28-day horizon is 980 units (35 units/day).",
-              "Without action, inventory stocks out on 2026-09-27, resulting in 600 units of unmet demand.",
-              "Ordering 800 units from SUP-A arriving on 2026-09-24 eliminates all unmet demand and maintains a closing stock of 200 units (5.7 days of cover).",
-              "Total order cost of $9,600.00 fits within the $20,000.00 available budget, but exceeds the $2,000.00 buyer autonomy spend limit."
-            ],
-            "disposition": "accept",
-            "assumptions": []
+            ]
           }
         }
       ]

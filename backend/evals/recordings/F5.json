@@ -15,9 +15,9 @@
       "text": "",
       "tool_calls": [
         {
-          "name": "simulate_plan",
+          "name": "get_inventory",
           "args": {
-            "reason": "Evaluate candidate purchase and expedite plans against current baseline demand and inventory projection."
+            "reason": "Check current stock on hand, reserved, usable, and quarantined units for SKU-1005 at NODE-BOG-F5."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Verify details of open purchase order PO-505, including supplier, quantity, expected delivery date, and status."
+            "reason": "Check existing open purchase orders for SKU-1005 at NODE-BOG-F5."
           }
         }
       ]
@@ -39,7 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Check lead times, expedite terms/fees for PO-505, and new purchase quotes across suppliers."
+            "reason": "Retrieve supplier quotes, lead times, costs, MOQs, pack sizes, and expedite options for PO-505."
           }
         }
       ]
@@ -50,18 +50,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check available budget, storage headroom, and autonomy limits for ordering or expediting."
-          }
-        }
-      ]
-    },
-    {
-      "text": "",
-      "tool_calls": [
-        {
-          "name": "get_inventory",
-          "args": {
-            "reason": "Check current stock breakdown including on-hand, reserved, and usable figures."
+            "reason": "Check budget, storage headroom, and policy autonomy limits."
           }
         }
       ]
@@ -73,7 +62,7 @@
           "name": "get_demand_evidence",
           "args": {
             "lookback_days": 14,
-            "reason": "Verify recent daily sales history and forecast to ensure no stockouts or promotions alter baseline demand."
+            "reason": "Check demand forecast, actual sales, per-day stock availability, and promotion status."
           }
         }
       ]
@@ -84,10 +73,21 @@
         {
           "name": "simulate_plan",
           "args": {
-            "po_id": "PO-505",
-            "reason": "Simulate expediting PO-505 to 2026-09-27 to confirm complete resolution of shortage and cost impact.",
+            "reason": "Evaluate candidate plans (keep_plan, expedite_po, create_po) to determine stockouts, costs, feasibility, and constraints."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
             "action_type": "expedite_po",
-            "new_date": "2026-09-27"
+            "new_date": "2026-09-27",
+            "reason": "Simulate expediting PO-505 to 2026-09-27 to confirm full shortage mitigation and cost.",
+            "po_id": "PO-505"
           }
         }
       ]
@@ -98,8 +98,8 @@
         {
           "name": "propose_plan",
           "args": {
+            "action_type": "expedite_po",
             "evidence_refs": [
-              "get_case_context",
               "get_inventory",
               "get_demand_evidence",
               "get_open_orders",
@@ -107,20 +107,18 @@
               "get_constraints",
               "simulate_plan"
             ],
-            "rationale": "The recommendation to order 800 units of SKU-1005 at NODE-BOG-F5 is rejected. \n\n1. Recommended Order Infeasibility & Redundancy: \nCreating a new order of 800 units from SUP-A ($12,000.00) or SUP-B ($14,000.00) exceeds the available budget limit of $10,000.00. Furthermore, ordering additional volume is redundant because open purchase order PO-505 already has 2,000 units confirmed from SUP-A.\n\n2. Problem Diagnosis:\nUsable stock is 1,000 units with daily demand stable at 100 units/day. Without intervention, stock depletes to 0 by 2026-09-26, leading to a 400-unit shortage over 4 days (2026-09-27 through 2026-09-30) prior to PO-505's original arrival date of 2026-10-01. The shortage is entirely a timing issue.\n\n3. Resolution via Expedite:\nExpeditation of PO-505 by 4 days brings its arrival forward from 2026-10-01 to 2026-09-27 at an incremental cost of $450.00. Simulation confirms that expediting PO-505 completely eliminates all 400 units of unmet demand, respects storage capacity (peak occupancy 60 m\u00b3 vs 200 m\u00b3 limit), and fits within the $10,000.00 available budget.",
-            "assumptions": [],
             "important_factors": [
-              "The recommendation to purchase 800 units is budget-infeasible ($12,000.00 vs $10,000.00 available) and unnecessary.",
-              "Existing confirmed order PO-505 already provides 2,000 units from SUP-A.",
-              "The projected shortage of 400 units between 2026-09-27 and 2026-09-30 is a timing delay rather than a volume shortage.",
-              "Expedite option for PO-505 advances delivery by 4 days to 2026-09-27 for $450.00, fully eliminating all unmet demand."
+              "Baseline stockout of 400 units between 2026-09-27 and 2026-09-30 due to a timing gap before PO-505 arrives on 2026-10-01",
+              "Recommended purchase of 800 units is infeasible as it costs $12,000.00 from SUP-A ($14,000.00 from SUP-B), exceeding the available budget of $10,000.00",
+              "Expediting open PO-505 by 4 days to 2026-09-27 eliminates all 400 units of unmet demand for an expedite fee of $450.00"
             ],
+            "assumptions": [],
             "action_args": {
               "po_id": "PO-505",
               "new_date": "2026-09-27"
             },
             "disposition": "reject",
-            "action_type": "expedite_po"
+            "rationale": "The recommendation to buy 800 units is rejected. Purchasing 800 units costs $12,000.00 from SUP-A ($14,000.00 from SUP-B), which is infeasible because it exceeds the available budget of $10,000.00. Additionally, the shortage is not a volume deficit over the planning horizon but a 4-day timing gap. Current usable inventory of 1,000 units covers daily demand of 100 units/day through 2026-09-26, resulting in a stockout of 400 units between 2026-09-27 and 2026-09-30 before PO-505 arrives on 2026-10-01. Expediting existing order PO-505 (2,000 units) by 4 days to arrive on 2026-09-27 costs $450.00, is budget-feasible, and completely eliminates the 400 units of unmet demand."
           }
         }
       ]

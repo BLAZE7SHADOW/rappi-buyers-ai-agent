@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current stock levels for SKU-1007 at NODE-BOG-F7 to assess current supply on hand."
+            "reason": "Check current stock levels and inventory snapshot age for SKU-1007."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check open purchase orders for SKU-1007 to determine pending deliveries and lead times."
+            "reason": "Check existing open purchase orders and delivery schedules for SKU-1007."
           }
         }
       ]
@@ -39,7 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Check supplier quotes, pricing, lead times, MOQ, and pack size options for SKU-1007."
+            "reason": "Find available supplier quotes, prices, pack sizes, and lead times for SKU-1007."
           }
         }
       ]
@@ -50,7 +50,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check budget, storage headroom, and autonomy limits for ordering SKU-1007 at NODE-BOG-F7."
+            "reason": "Check available budget, storage capacity, and buyer autonomy limits."
           }
         }
       ]
@@ -61,8 +61,8 @@
         {
           "name": "get_demand_evidence",
           "args": {
-            "lookback_days": 14,
-            "reason": "Check baseline demand forecast, stockout history, and sales patterns for SKU-1007."
+            "reason": "Examine daily sales history and baseline demand forecast for SKU-1007.",
+            "lookback_days": 14
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate baseline and candidate purchasing options to determine costs, stock projections, and feasibility."
+            "reason": "Simulate candidate purchasing plans to evaluate inventory trajectory and shortage risk."
           }
         }
       ]
@@ -84,11 +84,11 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate ordering 1800 units from SUP-A to evaluate feasibility if corporate order of 500 units is confirmed.",
-            "qty": 1800,
-            "supplier_id": "SUP-A",
             "expected_receipt_date": "2026-09-22",
-            "action_type": "create_po"
+            "supplier_id": "SUP-A",
+            "action_type": "create_po",
+            "reason": "Evaluate ordering 1800 units if the corporate bulk order is confirmed.",
+            "qty": 1800
           }
         }
       ]
@@ -99,26 +99,24 @@
         {
           "name": "ask_buyer",
           "args": {
-            "options": [
-              "Option 1 (Default): Exclude bulk order. Order 1,300 units from SUP-A at $9.00/unit ($11,700 total, delivery 2026-09-22). Covers baseline demand of 1,680 units over 28 days plus safety stock of 200 units (220 units closing inventory).",
-              "Option 2: Include 500-unit corporate bulk order. Order 1,800 units from SUP-A at $9.00/unit ($16,200 total, delivery 2026-09-22). Covers baseline demand plus corporate bulk order while keeping 720 units closing inventory (12.0 days cover)."
-            ],
-            "question": "Should we include the unconfirmed 500-unit corporate bulk order in the purchase order for SKU-1007 at NODE-BOG-F7?",
-            "context": {
-              "node_id": "NODE-BOG-F7",
-              "baseline_stockout_date": "2026-09-27",
-              "safety_stock": 200,
-              "open_orders": 0,
-              "supplier_unit_price": 9,
-              "baseline_demand_28d": 1680,
-              "sku": "SKU-1007",
-              "supplier_id": "SUP-A",
-              "unconfirmed_bulk_order_units": 500,
-              "usable_inventory": 600,
-              "supplier_lead_time_days": 5
-            },
             "kind": "clarification",
-            "recommendation": "Order 1,300 units from SUP-A based on confirmed baseline demand, unless Sales confirms the 500-unit corporate bulk order."
+            "question": "Has the sales team confirmed the one-off corporate bulk order of 500 units for SKU-1007 needed by 2026-09-30?",
+            "context": {
+              "supplier_id": "SUP-A",
+              "safety_stock_units": 200,
+              "unconfirmed_bulk_order_units": 500,
+              "baseline_demand_28_days": 1680,
+              "baseline_shortage_units": 1080,
+              "current_usable_inventory": 600,
+              "recommended_qty_with_bulk_order": 1800,
+              "recommended_qty_baseline": 1300,
+              "lead_time_days": 5
+            },
+            "options": [
+              "Confirm bulk order: Order 1800 units from SUP-A at $9.00/unit ($16,200.00 total) to satisfy baseline forecast plus the 500-unit corporate demand by 2026-09-30.",
+              "Unconfirmed/Reject bulk order: Order 1300 units from SUP-A at $9.00/unit ($11,700.00 total) to cover standard baseline forecast and maintain 200 units safety stock."
+            ],
+            "recommendation": "Order 1,300 units from SUP-A if the bulk order is unconfirmed. If confirmed by Sales, increase the purchase order to 1,800 units from SUP-A."
           }
         }
       ]
@@ -138,7 +136,19 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current inventory levels (on-hand, reserved, usable) for SKU-1007 at NODE-BOG-F7."
+            "reason": "Check current stock levels to understand on-hand and usable inventory for SKU-1007."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_demand_evidence",
+          "args": {
+            "lookback_days": 14,
+            "reason": "Review forecast demand and recent sales history for SKU-1007."
           }
         }
       ]
@@ -149,7 +159,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check if there are any existing open purchase orders for SKU-1007 at NODE-BOG-F7."
+            "reason": "Check existing open purchase orders for SKU-1007."
           }
         }
       ]
@@ -160,7 +170,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Retrieve eligible suppliers, pack sizes, lead times, MOQs, and prices for SKU-1007 at NODE-BOG-F7."
+            "reason": "Find available supplier options, pricing, MOQs, lead times, and pack sizes for SKU-1007."
           }
         }
       ]
@@ -171,7 +181,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check budget, storage capacity, and buyer autonomy limits for NODE-BOG-F7."
+            "reason": "Retrieve budget limits, storage constraints, and buyer autonomy thresholds."
           }
         }
       ]
@@ -182,7 +192,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate candidate purchase plans to assess baseline stockout risk and identify optimal order quantity based on normal demand."
+            "reason": "Simulate baseline projection and potential plan options for SKU-1007 to determine shortage, feasibility, and required quantities."
           }
         }
       ]
@@ -193,11 +203,11 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Verify the candidate plan of ordering 1300 units from SUP-A arriving 2026-09-22 to cover normal demand.",
             "supplier_id": "SUP-A",
-            "action_type": "create_po",
+            "expected_receipt_date": "2026-09-22",
+            "reason": "Evaluate creating PO for 1300 units from SUP-A to cover normal forecast demand.",
             "qty": 1300,
-            "expected_receipt_date": "2026-09-22"
+            "action_type": "create_po"
           }
         }
       ]
@@ -208,29 +218,30 @@
         {
           "name": "propose_plan",
           "args": {
-            "disposition": "accept",
-            "action_args": {
-              "supplier_id": "SUP-A",
-              "expected_receipt_date": "2026-09-22",
-              "qty": 1300
-            },
+            "important_factors": [
+              "Buyer confirmed the unconfirmed 500-unit corporate bulk order should not be purchased for, and only normal forecast demand should be covered.",
+              "Current usable inventory is 600 units with 0 open orders against 1680 units of forecast demand over the 28-day planning horizon.",
+              "1280 units are needed to meet baseline demand and maintain 200 units safety stock; rounding up to SUP-A's 100-unit pack size yields 1300 units.",
+              "Creating PO for 1300 units from SUP-A at $9.00/unit ($11,700.00 total) arriving 2026-09-22 completely avoids projected stockouts starting 2026-09-27."
+            ],
             "evidence_refs": [
+              "get_case_context",
               "get_inventory",
+              "get_demand_evidence",
               "get_open_orders",
               "get_supplier_options",
               "get_constraints",
               "simulate_plan"
             ],
-            "important_factors": [
-              "Normal forecast demand over the 28-day planning horizon is 1680 units.",
-              "Current usable inventory is 600 units with no open purchase orders, projecting stockouts starting 2026-09-27 and total unmet demand of 1080 units if no action is taken.",
-              "Buyer confirmed the unconfirmed 500-unit corporate bulk order should be excluded from purchasing decisions.",
-              "To satisfy 1680 units of forecast demand and maintain 200 units of safety stock, net requirement is 1280 units, rounding to 1300 units given SUP-A pack size of 100.",
-              "SUP-A purchase order of 1300 units costs $11,700.00, arrives 2026-09-22, fully prevents shortages, and leaves 220 units (3.7 days cover) ending inventory within max cover limits."
-            ],
-            "rationale": "The recommended order of 1300 units from SUP-A arriving on 2026-09-22 covers normal forecast demand without incorporating the unconfirmed 500-unit corporate bulk order, in accordance with buyer instructions. Without an order, inventory of 600 units exhausts by 2026-09-27, causing 1080 units of unmet demand. Ordering 1300 units (1280 required net requirement rounded up to SUP-A's 100-unit pack size) costs $11,700.00, eliminates all stockouts, maintains safety stock (200 units), and results in 220 units of closing stock (3.7 days cover), meeting all operational constraints.",
-            "action_type": "create_po",
-            "assumptions": []
+            "disposition": "accept",
+            "rationale": "Following explicit buyer instruction, we exclude the unconfirmed corporate bulk order of 500 units and procure only for normal forecast demand. Over the 28-day horizon, daily demand of 60 units requires 1680 units total. With 600 units of usable inventory on hand and 0 open orders, net baseline demand is 1080 units. Adding the 200-unit safety stock requirement brings total needed stock to 1280 units, which rounds up to 1300 units based on supplier SUP-A's pack size of 100 units. Ordering 1300 units for arrival on 2026-09-22 completely resolves the projected baseline shortage of 1080 units starting 2026-09-27 and leaves a closing inventory of 220 units (3.7 days of cover, within the 12-day policy limit). The total cost of $11,700.00 is feasible under the $30,000.00 budget and storage limits, though it exceeds the $2,000.00 autonomy spend limit and requires buyer approval.",
+            "action_args": {
+              "expected_receipt_date": "2026-09-22",
+              "qty": 1300,
+              "supplier_id": "SUP-A"
+            },
+            "assumptions": [],
+            "action_type": "create_po"
           }
         }
       ]

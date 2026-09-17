@@ -476,3 +476,35 @@ def test_the_gate_does_not_re_ask_a_question_the_agent_already_asked(db):
         questions = conn.execute(select(sch.interactions)).mappings().all()
     assert len(questions) == 1
     assert json.loads(questions[0]["context_json"])["raised_by"] == "agent"
+
+
+def test_an_answered_question_is_not_asked_or_cited_again(db):
+    """Once the buyer has ruled, the input is settled and the gate moves on."""
+    from app.db import schema as sch
+    from app.db.engine import transaction
+    from app.services.interactions import open_question
+
+    case_id = make_case(demand_per_day=60, po=None, expedite=False,
+                        budget_minor=5_000_000, unit_price=900)
+    with transaction() as conn:
+        conn.execute(sch.cases.update().where(sch.cases.c.case_id == case_id).values(
+            trigger_payload=json.dumps({
+                "recommended_qty": 1300,
+                "unverified_demand_signal": {
+                    "units": 500, "needed_by": "2026-09-30",
+                    "confirmed": False, "description": "possible corporate bulk order",
+                },
+            })))
+        interaction_id = open_question(conn, case_id, question="Is it confirmed?")
+        conn.execute(sch.interactions.update()
+                     .where(sch.interactions.c.interaction_id == interaction_id)
+                     .values(answer="Not confirmed. Cover forecast demand only."))
+
+    result = _propose(db, case_id, disposition="accept", action_type="create_po",
+                      args=create_po_args(qty=1300))
+
+    assert "decision_sensitive_to_unconfirmed_input" not in result["gate"]["triggers"]
+    assert "unconfirmed input" not in (result["gate"]["reason"] or "")
+    assert result["case_state"] != "awaiting_buyer"
+    with transaction() as conn:
+        assert len(conn.execute(select(sch.interactions)).mappings().all()) == 1

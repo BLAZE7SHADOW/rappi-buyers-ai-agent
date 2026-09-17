@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current on-hand, reserved, and usable stock levels for SKU-1008 at NODE-BOG-F8."
+            "reason": "Check current usable and on-hand inventory levels for SKU-1008 at NODE-BOG-F8."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check if there are any pending purchase orders for SKU-1008 at NODE-BOG-F8."
+            "reason": "Check if any purchase orders are currently open or expected for SKU-1008."
           }
         }
       ]
@@ -39,19 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Determine available suppliers, lead times, prices, and MOQs for SKU-1008."
-          }
-        }
-      ]
-    },
-    {
-      "text": "",
-      "tool_calls": [
-        {
-          "name": "get_demand_evidence",
-          "args": {
-            "reason": "Retrieve demand forecast and recent actual sales history for SKU-1008.",
-            "lookback_days": 14
+            "reason": "Determine available supplier options, unit prices, lead times, and MOQs for SKU-1008."
           }
         }
       ]
@@ -62,7 +50,19 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check budget, storage capacity, and autonomy approval limits."
+            "reason": "Check available budget, storage limits, and autonomy thresholds for NODE-BOG-F8."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_demand_evidence",
+          "args": {
+            "reason": "Check sales history and demand forecast for SKU-1008 to understand inventory burn rate.",
+            "lookback_days": 14
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate baseline and candidate purchase plans to assess shortages, feasibility, and costs."
+            "reason": "Evaluate keep_plan and candidate purchasing options against inventory projections."
           }
         }
       ]
@@ -84,11 +84,11 @@
         {
           "name": "simulate_plan",
           "args": {
-            "qty": 550,
-            "reason": "Evaluate purchasing 550 units from SUP-A arriving 2026-09-20.",
-            "supplier_id": "SUP-A",
+            "expected_receipt_date": "2026-09-20",
             "action_type": "create_po",
-            "expected_receipt_date": "2026-09-20"
+            "supplier_id": "SUP-A",
+            "qty": 550,
+            "reason": "Simulate ordering 550 units from SUP-A expected on 2026-09-20 to confirm metrics and checks."
           }
         }
       ]
@@ -99,26 +99,24 @@
         {
           "name": "propose_plan",
           "args": {
-            "important_factors": [
-              "Current usable inventory is 350 units against a 28-day demand of 700 units (25 units/day), leading to a projected stockout starting 2026-10-01 without replenishment.",
-              "Safety stock is set at 200 units, which would be breached on 2026-09-23 under baseline conditions.",
-              "Supplier SUP-A provides a lead time of 3 days (arriving 2026-09-20) at $3.00 per unit, with MOQ 100 and pack size 50.",
-              "Ordering 550 units satisfies the exact demand requirement, resulting in 0 unmet units and ending closing inventory of 200 units (matching safety stock and representing 8.0 days of cover).",
-              "The order cost of $1,650.00 is fully compliant with available budget ($5,000.00), storage capacity, policy limits, and buyer autonomy ($2,000.00)."
-            ],
-            "action_type": "create_po",
+            "disposition": "accept",
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
               "get_open_orders",
-              "get_supplier_options",
               "get_demand_evidence",
+              "get_supplier_options",
               "get_constraints",
               "simulate_plan"
             ],
-            "disposition": "accept",
-            "rationale": "The recommendation to purchase 550 units of SKU-1008 from SUP-A is accepted. Current usable stock of 350 units serves demand through 2026-09-30 but results in 350 unmet units across the 28-day horizon and breaches the 200-unit safety stock threshold on 2026-09-23. Placing a purchase order for 550 units with SUP-A for expected delivery on 2026-09-20 eliminates all 350 units of projected unmet demand, maintains zero days below safety stock after arrival, and closes the planning horizon with 200 units in inventory (8.0 days of cover, within the maximum 12-day policy limit). The total order cost of $1,650.00 is within the $2,000.00 buyer autonomy spend limit and $5,000.00 budget headroom.",
+            "action_type": "create_po",
             "assumptions": [],
+            "rationale": "The baseline projection shows usable inventory of 350 units against a horizon demand of 700 units (25 units/day). Without action, inventory drops below safety stock (200 units) on 2026-09-23 and encounters a stockout starting 2026-10-01, resulting in 350 units of unmet demand and 22 days below safety stock. Placing a PO for 550 units with SUP-A (expected receipt date 2026-09-20) eliminates all 350 units of unmet demand, prevents any days below safety stock, and yields a closing inventory of 200 units (8.0 days of cover, within the max 12 days cover policy). The order cost of $1,650.00 is fully within the available budget of $5,000.00 and autonomy spend limit of $2,000.00. Therefore, the recommended order of 550 units is accepted.",
+            "important_factors": [
+              "350 units of unmet demand projected in baseline starting 2026-10-01",
+              "Ordering 550 units from SUP-A closes all unmet demand with 0 days below safety stock",
+              "Total cost of $1,650.00 is within the available budget of $5,000.00 and autonomy spend limit of $2,000.00"
+            ],
             "action_args": {
               "qty": 550,
               "expected_receipt_date": "2026-09-20",
