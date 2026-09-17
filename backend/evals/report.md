@@ -1,6 +1,6 @@
 # Agent Evaluation Report
 
-Generated: 2026-09-17T20:19:31
+Generated: 2026-09-17T21:02:56
 
 Columns are the assignment's own evaluation questions. Assertions target outcomes and invariants, never exact wording or a fixed tool order; fixtures with more than one defensible plan are scored against an acceptable band.
 
@@ -8,12 +8,14 @@ Columns are the assignment's own evaluation questions. Assertions target outcome
 
 | Fixture | Mode | Model | Outcome | Tool calls | Replanned | Result |
 |---|---|---|---|---|---|---|
-| F1 | live | gemini-3.6-flash | proposed → replanned (proposed) | 17 | yes | **PASS** |
-| F2 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
+| F1 | live | gemini-3.6-flash | proposed → replanned (proposed) | 18 | yes | **PASS** |
+| F2 | live | gemini-3.6-flash | proposed | 10 | — | **PASS** |
 | F3 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
 | F4 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
 | F5 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
-| F6 | live | gemini-3.6-flash | proposed | 8 | — | **PASS** |
+| F6 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
+| F7 | live | gemini-3.6-flash | awaiting_buyer → answered (proposed) | 19 | — | **PASS** |
+| F8 | live | gemini-3.6-flash | proposed | 9 | — | **PASS** |
 
 ## Per-question results
 
@@ -25,6 +27,8 @@ Columns are the assignment's own evaluation questions. Assertions target outcome
 | F4 | PASS | PASS | PASS | PASS | PASS | n/a |
 | F5 | PASS | PASS | PASS | PASS | PASS | PASS |
 | F6 | PASS | PASS | PASS | PASS | PASS | PASS |
+| F7 | PASS | PASS | PASS | PASS | PASS | n/a |
+| F8 | PASS | PASS | PASS | PASS | PASS | n/a |
 
 `n/a` means the fixture does not exercise that question. It is excluded from the result rather than counted as a pass.
 
@@ -47,13 +51,15 @@ Legend:
 
 **Validation is independent of the agent, not of the world model.** The execution-layer checks compare against supplier-reported facts and are fully independent. The business-layer check re-derives the projection using the same engine the plan used, so an error in that engine would affect plan and validation together. The engine is covered separately by unit tests for that reason.
 
+**Typed tool errors are recovered from.** Tools return a typed failure the model is expected to read and act on rather than an exception that ends the run. Observed in this run: F6 recovered from `MISSING_FIELD` on `propose_plan`.
+
 **This is one live sample.** Model behaviour varies between runs; these results are the run this report was generated from, not a guaranteed trace. The transcripts in `recordings/` are from a separate recorded run and are what `--replay` reproduces without an API key.
 
 ## Detail
 
 ### F1 — Sparkling Water · review 800-unit recommendation
 
-Case `CASE-F1` · mode `live` · model `gemini-3.6-flash` · outcome `proposed → replanned (proposed)` · 17 tool calls
+Case `CASE-F1` · mode `live` · model `gemini-3.6-flash` · outcome `proposed → replanned (proposed)` · 18 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'reject' matches expectation.
 - PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call stated the business question it answered.
@@ -64,7 +70,7 @@ Case `CASE-F1` · mode `live` · model `gemini-3.6-flash` · outcome `proposed �
 
 ### F2 — UHT Whole Milk · review 800-unit recommendation
 
-Case `CASE-F2` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` · 9 tool calls
+Case `CASE-F2` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` · 10 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'accept' matches expectation.
 - PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call stated the business question it answered.
@@ -108,7 +114,7 @@ Case `CASE-F5` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` 
 
 ### F6 — Basmati Rice · shortfall with no available budget
 
-Case `CASE-F6` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` · 8 tool calls
+Case `CASE-F6` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` · 9 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'escalate' matches expectation.
 - PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered.
@@ -116,3 +122,25 @@ Case `CASE-F6` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` 
 - PASS — **Did it take the appropriate action?** Action 'none'; 0 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** No action executed and the case reached its terminal state.
 - PASS — **What happens when the initial action does not work?** No feasible option existed; escalated rather than acting.
+
+### F7 — Ground Coffee · unconfirmed bulk order changes the answer
+
+Case `CASE-F7` · mode `live` · model `gemini-3.6-flash` · outcome `awaiting_buyer → answered (proposed)` · 19 tool calls
+
+- PASS — **Was the decision correct?** Disposition 'accept', quantity 1300 within [1200, 1400].
+- PASS — **Did the agent obtain the necessary information?** Consulted 9 distinct tools including get_demand_evidence, ask_buyer; every selected evidence and simulation call stated the business question it answered.
+- PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
+- PASS — **Did it take the appropriate action?** Action 'create_po'; 1 execution(s) across 1 proposal(s), no duplicates.
+- PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
+- n/a  — **What happens when the initial action does not work?** Not exercised: the action succeeded and the case resolved ('resolved'). Failure handling is covered by F1 and F5.
+
+### F8 — Paper Towels · low-value replenishment within delegated authority
+
+Case `CASE-F8` · mode `live` · model `gemini-3.6-flash` · outcome `proposed` · 9 tool calls
+
+- PASS — **Was the decision correct?** Disposition 'accept' matches expectation.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered.
+- PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
+- PASS — **Did it take the appropriate action?** Action 'create_po' was authorised by the gate and executed with no approval event: 1 execution(s) across 1 proposal(s).
+- PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
+- n/a  — **What happens when the initial action does not work?** Not exercised: the action succeeded and the case resolved ('resolved'). Failure handling is covered by F1 and F5.

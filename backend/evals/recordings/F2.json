@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current stock level for SKU-1002 at NODE-BOG-F2."
+            "reason": "Determine current on-hand inventory levels and stock availability for SKU-1002 at NODE-BOG-F2."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check open purchase orders for SKU-1002 at NODE-BOG-F2."
+            "reason": "Check outstanding purchase orders and expected arrival dates for SKU-1002."
           }
         }
       ]
@@ -39,7 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Check supplier options, prices, lead times, MOQs and pack sizes for SKU-1002."
+            "reason": "Identify available suppliers, prices, lead times, MOQs, and pack sizes for SKU-1002."
           }
         }
       ]
@@ -50,7 +50,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check budget and storage headroom constraints for NODE-BOG-F2."
+            "reason": "Check available budget and dated storage headroom at NODE-BOG-F2, along with autonomy limits."
           }
         }
       ]
@@ -61,8 +61,8 @@
         {
           "name": "get_demand_evidence",
           "args": {
-            "reason": "Check daily demand forecast and recent actual sales for SKU-1002.",
-            "lookback_days": 14
+            "lookback_days": 14,
+            "reason": "Review demand forecast and recent daily sales history for SKU-1002."
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Evaluate baseline keep_plan vs candidate purchasing actions to get projected inventory and shortage metrics."
+            "reason": "Simulate all standard candidate purchasing plans to evaluate feasibility, costs, coverage, and shortage risk."
           }
         }
       ]
@@ -85,10 +85,10 @@
           "name": "simulate_plan",
           "args": {
             "qty": 500,
-            "expected_receipt_date": "2026-09-24",
+            "action_type": "create_po",
             "supplier_id": "SUP-A",
-            "reason": "Test ordering 500 units to see if lower quantity meets demand and stays within policy.",
-            "action_type": "create_po"
+            "reason": "Evaluate if ordering 500 units from SUP-A is sufficient to cover demand and maintain safety stock.",
+            "expected_receipt_date": "2026-09-24"
           }
         }
       ]
@@ -101,9 +101,9 @@
           "args": {
             "supplier_id": "SUP-A",
             "action_type": "create_po",
-            "expected_receipt_date": "2026-09-24",
             "qty": 600,
-            "reason": "Test ordering 600 units to cover exact demand without ending safety stock."
+            "expected_receipt_date": "2026-09-24",
+            "reason": "Evaluate ordering 600 units from SUP-A."
           }
         }
       ]
@@ -114,17 +114,23 @@
         {
           "name": "propose_plan",
           "args": {
-            "assumptions": [
-              "Daily demand follows the projected forecast of 35 units per day across the 28-day horizon."
+            "important_factors": [
+              "Baseline stockout of 600 unmet units starting 2026-09-27 without purchase",
+              "Usable on-hand inventory of 380 units against 980 units total 28-day demand",
+              "Safety stock policy requirement of 200 units",
+              "Supplier SUP-A lead time of 7 days delivering 800 units by 2026-09-24",
+              "Total purchase cost of $9,600.00 within available budget of $20,000.00",
+              "Peak storage occupancy of 38.70 m\u00b3 within warehouse limit of 200.00 m\u00b3"
             ],
-            "disposition": "accept",
-            "rationale": "The purchasing system recommendation to buy 800 units of SKU-1002 from SUP-A is correct. Current usable inventory is 380 units with no outstanding purchase orders. Over the 28-day planning horizon, daily forecast demand of 35 units results in 980 total demand units. Without new supply, stockouts begin on 2026-09-27, resulting in 600 total unmet units. Placing an order for 800 units with SUP-A (unit price $12.00, total cost $9,600.00, 7-day lead time) for expected delivery on 2026-09-24 eliminates all unmet demand (0 residual unmet units) and leaves 200 units in closing inventory, satisfying the 200-unit safety stock requirement. The order is fully feasible within the available budget of $20,000.00 and warehouse capacity (peak occupancy of 38.7 m\u00b3 out of 200.0 m\u00b3). Because the order cost of $9,600.00 exceeds the autonomy spend limit of $2,000.00, buyer approval is required.",
-            "action_type": "create_po",
             "action_args": {
               "qty": 800,
-              "supplier_id": "SUP-A",
-              "expected_receipt_date": "2026-09-24"
+              "expected_receipt_date": "2026-09-24",
+              "supplier_id": "SUP-A"
             },
+            "disposition": "accept",
+            "assumptions": [],
+            "rationale": "The recommended purchase of 800 units for SKU-1002 at NODE-BOG-F2 is correct and accepted.\n\nCurrent usable stock is 380 units with 0 open purchase orders. Daily forecast demand is 35 units per day (980 units over the 28-day planning horizon). Without action, the baseline projection indicates inventory exhaustion and a stockout beginning 2026-09-27, resulting in 600 units of total unmet demand.\n\nTo meet the horizon demand of 980 units and maintain the required safety stock level of 200 units, exactly 800 units are needed (980 total demand + 200 safety stock - 380 usable stock = 800 units needed).\n\nSupplier SUP-A offers a unit price of $12.00, MOQ of 500, pack size of 100, and a 7-day lead time. Placing an order for 800 units today (2026-09-17) results in expected receipt on 2026-09-24, preventing the stockout scheduled for 2026-09-27.\n\nThe order cost is $9,600.00, which is fully within the available budget of $20,000.00. Peak post-receipt storage occupancy reaches 38.70 m\u00b3, well within the node storage capacity limit of 200.00 m\u00b3. The order exceeds the buyer autonomy spend threshold of $2,000.00, so it will require standard buyer approval, but is completely feasible and policy-compliant.",
+            "action_type": "create_po",
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
@@ -133,13 +139,6 @@
               "get_constraints",
               "get_demand_evidence",
               "simulate_plan"
-            ],
-            "important_factors": [
-              "Current usable stock is 380 units with 0 open purchase orders.",
-              "Baseline projection forecasts 980 total demand units, leading to 600 unmet units starting 2026-09-27.",
-              "Ordering 800 units from SUP-A arriving on 2026-09-24 completely eliminates unmet demand (0 unmet units) and maintains safety stock at 200 units (5.7 days of cover).",
-              "The plan is feasible under budget ($9,600 cost vs $20,000 available) and capacity (38.7 m\u00b3 peak occupancy vs 200 m\u00b3 capacity).",
-              "Total spend of $9,600 exceeds the $2,000 autonomy limit, requiring buyer approval."
             ]
           }
         }

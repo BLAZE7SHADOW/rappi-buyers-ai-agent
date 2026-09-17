@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17T20:19:31.864565",
+  "generated": "2026-09-17T21:02:56.230788",
   "live": true,
   "results": [
     {
@@ -9,8 +9,9 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed \u2192 replanned (proposed)",
-      "tool_calls": 17,
+      "tool_calls": 18,
       "replanned": true,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -59,8 +60,9 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 9,
+      "tool_calls": 10,
       "replanned": false,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -111,6 +113,7 @@
       "outcome": "proposed",
       "tool_calls": 9,
       "replanned": false,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -161,6 +164,7 @@
       "outcome": "proposed",
       "tool_calls": 9,
       "replanned": false,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -211,6 +215,7 @@
       "outcome": "proposed",
       "tool_calls": 9,
       "replanned": false,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -259,8 +264,9 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 8,
+      "tool_calls": 9,
       "replanned": false,
+      "asked_buyer": false,
       "passed": true,
       "error": "",
       "checks": [
@@ -299,6 +305,108 @@
           "passed": true,
           "applicable": true,
           "detail": "No feasible option existed; escalated rather than acting."
+        }
+      ]
+    },
+    {
+      "fixture_id": "F7",
+      "case_id": "CASE-F7",
+      "mode": "live",
+      "provider": "gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "awaiting_buyer \u2192 answered (proposed)",
+      "tool_calls": 19,
+      "replanned": false,
+      "asked_buyer": true,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Disposition 'accept', quantity 1300 within [1200, 1400]."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Consulted 9 distinct tools including get_demand_evidence, ask_buyer; every selected evidence and simulation call stated the business question it answered."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "applicable": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Action 'create_po'; 1 execution(s) across 1 proposal(s), no duplicates."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "applicable": false,
+          "detail": "Not exercised: the action succeeded and the case resolved ('resolved'). Failure handling is covered by F1 and F5."
+        }
+      ]
+    },
+    {
+      "fixture_id": "F8",
+      "case_id": "CASE-F8",
+      "mode": "live",
+      "provider": "gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 9,
+      "replanned": false,
+      "asked_buyer": false,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Disposition 'accept' matches expectation."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "applicable": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Action 'create_po' was authorised by the gate and executed with no approval event: 1 execution(s) across 1 proposal(s)."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "applicable": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "applicable": false,
+          "detail": "Not exercised: the action succeeded and the case resolved ('resolved'). Failure handling is covered by F1 and F5."
         }
       ]
     }

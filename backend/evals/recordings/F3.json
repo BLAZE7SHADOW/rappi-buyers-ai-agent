@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current inventory levels for SKU-1003 at NODE-BOG-F3 to determine available stock and usable units."
+            "reason": "Determine current usable stock and inventory breakdown for SKU-1003 at NODE-BOG-F3."
           }
         }
       ]
@@ -28,29 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check if there are any existing open purchase orders for SKU-1003 that could cover upcoming demand or be expedited."
-          }
-        }
-      ]
-    },
-    {
-      "text": "",
-      "tool_calls": [
-        {
-          "name": "get_supplier_options",
-          "args": {
-            "reason": "Retrieve available supplier options, pricing, lead times, and MOQs for SKU-1003."
-          }
-        }
-      ]
-    },
-    {
-      "text": "",
-      "tool_calls": [
-        {
-          "name": "get_constraints",
-          "args": {
-            "reason": "Check available budget, storage space, and autonomy limits for ordering SKU-1003."
+            "reason": "Check for existing purchase orders in flight for SKU-1003."
           }
         }
       ]
@@ -62,7 +40,29 @@
           "name": "get_demand_evidence",
           "args": {
             "lookback_days": 14,
-            "reason": "Retrieve demand forecast and recent sales history to understand daily demand for SKU-1003."
+            "reason": "Check projected daily demand and recent sales history for SKU-1003."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_supplier_options",
+          "args": {
+            "reason": "Check available suppliers, lead times, MOQs, pack sizes, and prices for SKU-1003."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_constraints",
+          "args": {
+            "reason": "Check budget, storage headroom, and autonomy limits for ordering SKU-1003."
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate all available purchasing candidates to project demand, stockouts, costs, and policy compliance."
+            "reason": "Simulate all candidate plans to see projections, shortages, and feasibility."
           }
         }
       ]
@@ -85,10 +85,10 @@
           "name": "simulate_plan",
           "args": {
             "action_type": "create_po",
+            "supplier_id": "SUP-A",
             "qty": 500,
             "expected_receipt_date": "2026-09-24",
-            "reason": "Verify simulation for ordering 500 units of SKU-1003 from SUP-A.",
-            "supplier_id": "SUP-A"
+            "reason": "Verify specific details for ordering 500 units from SUP-A."
           }
         }
       ]
@@ -99,30 +99,31 @@
         {
           "name": "propose_plan",
           "args": {
-            "action_args": {
-              "qty": 500,
-              "supplier_id": "SUP-A",
-              "expected_receipt_date": "2026-09-24"
-            },
-            "important_factors": [
-              "Recommended quantity of 800 units exceeds storage capacity (204.00 m\u00b3 peak vs 200.00 m\u00b3 max) and excess cover limits (29.4 days vs 12-day limit).",
-              "Baseline projected stockout starts on 2026-09-27 with 300 unmet demand units across the 28-day planning horizon.",
-              "An order of 500 units from SUP-A arriving 2026-09-24 completely eliminates unmet demand while keeping peak occupancy at 198.00 m\u00b3 and closing cover at 11.8 days.",
-              "Order cost of $6,500.00 exceeds the $2,000.00 autonomy spend limit, requiring buyer approval."
-            ],
-            "disposition": "modify",
-            "assumptions": [],
-            "action_type": "create_po",
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
               "get_open_orders",
+              "get_demand_evidence",
               "get_supplier_options",
               "get_constraints",
-              "get_demand_evidence",
               "simulate_plan"
             ],
-            "rationale": "The trigger recommended buying 800 units of SKU-1003. Simulation shows that ordering 800 units is infeasible because it violates storage capacity (peak occupancy 204.00 m\u00b3 vs 200.00 m\u00b3 limit) and the excess cover limit (29.4 days vs 12 days). Current usable inventory is 176 units against a 28-day demand forecast of 476 units (17 units/day). Without new supply, stockout begins on 2026-09-27 resulting in 300 unmet units. Supplier SUP-A offers a 7-day lead time at $13.00/unit, MOQ 250, pack size 50. Ordering 500 units arriving 2026-09-24 reduces unmet demand to 0 units, keeps peak occupancy within capacity at 198.00 m\u00b3, and leaves closing inventory at 200 units (11.8 days of cover, within policy). Total spend is $6,500.00, which exceeds the $2,000.00 autonomy limit and requires buyer approval."
+            "important_factors": [
+              "Recommended order of 800 units is infeasible due to exceeding storage capacity (204.00 m\u00b3 vs limit of 200.00 m\u00b3) and max days cover policy (29.4 days vs 12-day limit).",
+              "Without new supply, inventory of 176 units runs out on 2026-09-27, creating 300 units of unmet demand over the 28-day horizon.",
+              "Ordering 500 units from SUP-A satisfies daily demand (17 units/day), fully eliminates unmet demand (0 units residual unmet), arrives on 2026-09-24 before stockout, and respects pack size (50) and MOQ (250).",
+              "Ordering 500 units results in peak occupancy of 198.00 m\u00b3 (within 200.00 m\u00b3 capacity) and closing inventory of 200 units (11.8 days cover, within 12-day limit).",
+              "Order cost of $6,500.00 is within available budget ($50,000.00) but exceeds autonomy spend limit ($2,000.00), requiring buyer approval."
+            ],
+            "disposition": "modify",
+            "action_args": {
+              "supplier_id": "SUP-A",
+              "qty": 500,
+              "expected_receipt_date": "2026-09-24"
+            },
+            "action_type": "create_po",
+            "rationale": "The purchasing recommendation of 800 units is modified to 500 units. The baseline analysis shows current usable stock of 176 units and daily forecast demand of 17 units/day (totaling 476 units over 28 days), leading to a stockout on 2026-09-27 and total unmet demand of 300 units.\n\nThe recommended quantity of 800 units is infeasible because it violates storage capacity constraints (peak occupancy 204.00 m\u00b3 vs 200.00 m\u00b3 limit) and max days of cover policy (29.4 days vs 12.0 days limit).\n\nOrdering 500 units from supplier SUP-A at $13.00 per unit ($6,500.00 total) with a 7-day lead time expected on 2026-09-24 completely eliminates unmet demand (0 residual unmet units). It stays within storage capacity (peak occupancy 198.00 m\u00b3), respects the maximum days cover policy (closing inventory 200 units = 11.8 days cover), satisfies MOQ (250 units) and pack size (50 units), and fits within the available budget of $50,000.00. Because total spend exceeds the $2,000.00 autonomy limit, buyer approval is required.",
+            "assumptions": []
           }
         }
       ]

@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current on-hand, reserved, quarantined, damaged, and usable stock levels for SKU-1005 at NODE-BOG-F5."
+            "reason": "Check current on-hand, reserved, quarantined, and usable inventory levels for SKU-1005 at NODE-BOG-F5."
           }
         }
       ]
@@ -28,19 +28,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check existing purchase orders for SKU-1005 to see if supply is already inbound or overdue."
-          }
-        }
-      ]
-    },
-    {
-      "text": "",
-      "tool_calls": [
-        {
-          "name": "get_demand_evidence",
-          "args": {
-            "lookback_days": 14,
-            "reason": "Check recent sales history, stockout days, promotions, and forecast demand to evaluate daily burn rate and stockout risks."
+            "reason": "Check open purchase orders for SKU-1005 at NODE-BOG-F5 to see incoming supply, expected receipt dates, and expedite availability."
           }
         }
       ]
@@ -51,7 +39,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Check available supplier options and potential expedite options for open purchase order PO-505."
+            "reason": "Check supplier quotes, lead times, costs, MOQs, pack sizes, and options to expedite existing order PO-505."
           }
         }
       ]
@@ -62,7 +50,18 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check available budget, storage space capacity, and autonomy spending limits for purchasing decisions."
+            "reason": "Check available budget, storage capacity, and autonomy limits for ordering and expediting."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_demand_evidence",
+          "args": {
+            "reason": "Check forecast, recent daily sales history, stock availability, and any promotion windows for SKU-1005."
           }
         }
       ]
@@ -73,7 +72,21 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate all candidate plans to evaluate projected baseline and alternate purchasing or expediting options against demand and inventory constraints."
+            "reason": "Evaluate all candidate purchasing and expediting plans against baseline demand and inventory projections to identify feasible options and shortages."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "po_id": "PO-505",
+            "new_date": "2026-09-27",
+            "action_type": "expedite_po",
+            "reason": "Simulate expediting PO-505 to 2026-09-27 to confirm stockout elimination and cost details."
           }
         }
       ]
@@ -84,32 +97,30 @@
         {
           "name": "propose_plan",
           "args": {
+            "action_type": "expedite_po",
             "disposition": "reject",
             "action_args": {
-              "new_date": "2026-09-27",
-              "po_id": "PO-505"
+              "po_id": "PO-505",
+              "new_date": "2026-09-27"
             },
-            "assumptions": [
-              "Forecast demand of 100 units/day will continue as modeled over the 28-day planning horizon."
-            ],
-            "important_factors": [
-              "The recommended purchase of 800 units is infeasible as it costs $12,000.00 from SUP-A (or $14,000.00 from SUP-B), exceeding the available budget limit of $10,000.00.",
-              "Baseline simulation shows a 4-day stockout starting 2026-09-27 with a total of 400 unmet units prior to the arrival of open order PO-505.",
-              "Expediting open purchase order PO-505 (2,000 units from SUP-A) by 4 days to 2026-09-27 completely eliminates the stockout (0 residual unmet units).",
-              "Expediting PO-505 incurs an incremental fee of $450.00, which is feasible within the $10,000.00 budget and storage capacity (60 m\u00b3 peak occupancy vs 200 m\u00b3 capacity).",
-              "The $450.00 expedite fee exceeds the buyer autonomy limit of $250.00, requiring buyer approval."
-            ],
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
               "get_open_orders",
-              "get_demand_evidence",
               "get_supplier_options",
               "get_constraints",
+              "get_demand_evidence",
               "simulate_plan"
             ],
-            "rationale": "The system recommendation to buy 800 units is rejected. Simulation shows an 800-unit PO is infeasible because it costs $12,000.00 from SUP-A or $14,000.00 from SUP-B, exceeding the available budget of $10,000.00. Furthermore, an 800-unit order is unnecessary to prevent stockouts. Current usable inventory is 1,000 units, and daily forecast demand is 100 units/day. The baseline projection indicates stock runs out on 2026-09-27, leading to a 4-day stockout totaling 400 unmet units before open order PO-505 (2,000 units) arrives on 2026-10-01. Expediting existing purchase order PO-505 by 4 days to arrive on 2026-09-27 resolves the shortage entirely, leaving 0 residual unmet units at an expedite fee of $450.00. This is far more cost-effective than placing a new purchase order ($7,000.00+). Because the $450.00 fee exceeds the $250.00 autonomy expedite fee limit, this action is submitted for buyer approval.",
-            "action_type": "expedite_po"
+            "rationale": "The recommendation to create a new purchase order for 800 units is rejected. Simulation shows that ordering 800 units is infeasible as it costs $12,000.00 from SUP-A or $14,000.00 from SUP-B, exceeding the available budget limit of $10,000.00. Furthermore, creating a new order is unnecessary because existing open order PO-505 already has 2,000 units scheduled for receipt on 2026-10-01 from SUP-A.\n\nUnder baseline conditions (1,000 usable units on hand, 100 units/day forecast demand), stock runs out on 2026-09-26 closing, resulting in 400 unmet demand units between 2026-09-27 and 2026-09-30.\n\nExpedite simulation demonstrates that moving PO-505's receipt date forward by 4 days to 2026-09-27 eliminates the entire 400-unit shortage (reducing unmet demand to 0 units) at an incremental cost of $450.00. This action is feasible against hard budget ($10,000.00 available) and capacity (peak occupancy 60.00 m\u00b3 vs 200.00 m\u00b3 capacity) constraints. Because the $450.00 expedite fee exceeds the buyer's $250.00 autonomy limit, this plan requires buyer approval.",
+            "important_factors": [
+              "The baseline projection shows usable opening inventory of 1,000 units and demand of 100 units/day, leading to a 400-unit shortage from 2026-09-27 to 2026-09-30 prior to the arrival of PO-505 on 2026-10-01.",
+              "The recommended order of 800 units is infeasible because its total cost ($12,000.00 from SUP-A or $14,000.00 from SUP-B) exceeds the available budget of $10,000.00 by $2,000.00 or $4,000.00.",
+              "Existing purchase order PO-505 for 2,000 units from SUP-A can be expedited by 4 days to arrive on 2026-09-27 for a fee of $450.00.",
+              "Expedite action completely eliminates the 400-unit stockout (total unmet units reduced to 0), leaves closing inventory at 200 units, and is feasible within the $10,000.00 available budget.",
+              "The $450.00 expedite fee exceeds the buyer autonomy limit of $250.00, requiring buyer approval."
+            ],
+            "assumptions": []
           }
         }
       ]
