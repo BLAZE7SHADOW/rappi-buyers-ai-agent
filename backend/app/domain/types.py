@@ -278,6 +278,11 @@ class PolicyConfig:
     max_tool_calls: int = 12
     max_replans: int = 2
     post_promo_uplift_factor: float = 1.2
+    # How far an unconfirmed input must move the order before a human has to be
+    # asked about it. Proportional, with a floor so small orders are not
+    # interrupted by rounding. See ``domain/sensitivity.py``.
+    sensitivity_materiality_pct: float = 10.0
+    sensitivity_materiality_floor_units: int = 100
 
 
 # --------------------------------------------------------------------------- #
