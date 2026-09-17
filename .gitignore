@@ -21,9 +21,11 @@ frontend/dist/
 frontend/.vite/
 
 # Runtime artifacts
-backend/evals/results.json
-backend/evals/report.md
 *.log
+
+# Evaluation output IS tracked: the assignment asks for observed results, and
+# recordings are what make the suite reproducible without an API key.
+# (backend/evals/report.md, results.json and recordings/ are committed.)
 
 # OS / editor
 .DS_Store

@@ -64,11 +64,21 @@ def _latest_verdict(conn, case_id: str) -> dict | None:
     return json.loads(row["payload_json"]) if row else None
 
 
-def run_case(case_id: str, max_tool_calls: int | None = None) -> dict:
-    """Run or resume investigation for one case."""
+def run_case(
+    case_id: str,
+    max_tool_calls: int | None = None,
+    provider=None,
+) -> dict:
+    """Run or resume investigation for one case.
+
+    ``provider`` may be injected so evaluations can record a live run and replay
+    it deterministically afterwards. Everything else -- tools, gate, executor,
+    validator -- is identical between the two, so a replayed run exercises the
+    real system rather than a mock of it.
+    """
     settings = get_settings()
     budget = max_tool_calls or settings.max_tool_calls
-    provider = get_provider()
+    provider = provider or get_provider()
 
     with transaction() as conn:
         case = load_case(conn, case_id)

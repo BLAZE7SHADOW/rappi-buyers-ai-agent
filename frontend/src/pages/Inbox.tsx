@@ -39,7 +39,7 @@ export function Inbox() {
       </div>
 
       {loading && <Spinner label="Loading cases…" />}
-      {!loading && error && <ErrorBanner error={error} />}
+      {!loading && !!error && <ErrorBanner error={error} />}
       {!loading && !error && cases && cases.length === 0 && (
         <EmptyState>
           No cases found. If you just reset the demo, seed data may still be loading — refresh in a moment.

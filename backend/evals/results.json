@@ -1,0 +1,78 @@
+{
+  "generated": "2026-09-17T15:40:39.925837",
+  "live": false,
+  "results": [
+    {
+      "fixture_id": "F1",
+      "case_id": "CASE-F1",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    },
+    {
+      "fixture_id": "F2",
+      "case_id": "CASE-F2",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    },
+    {
+      "fixture_id": "F3",
+      "case_id": "CASE-F3",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    },
+    {
+      "fixture_id": "F4",
+      "case_id": "CASE-F4",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    },
+    {
+      "fixture_id": "F5",
+      "case_id": "CASE-F5",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    },
+    {
+      "fixture_id": "F6",
+      "case_id": "CASE-F6",
+      "mode": "replay",
+      "provider": "",
+      "model": "",
+      "outcome": "",
+      "tool_calls": 0,
+      "passed": false,
+      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
+      "checks": []
+    }
+  ]
+}
