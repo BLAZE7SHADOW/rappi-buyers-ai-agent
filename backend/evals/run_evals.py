@@ -86,6 +86,8 @@ class Result:
     replanned: bool = False
     checks: list[Check] = field(default_factory=list)
     error: str = ""
+    # (tool, error_code) pairs the model hit and then recovered from in this run.
+    recoveries: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
@@ -422,7 +424,32 @@ def run_fixture(fixture_id: str, *, live: bool, record: bool) -> Result:
 
     st = _state(case_id)
     result.checks = [check(fixture_id, fixture.expected, st) for check in CHECKS]
+    result.recoveries = _recoveries(st)
     return result
+
+
+def _recoveries(st: dict) -> list[tuple[str, str]]:
+    """Typed tool errors the model hit and then got past in the same run.
+
+    Only counted when a later call to the same tool succeeded: an error the run
+    never came back from is a failure, not a recovery."""
+    out: list[tuple[str, str]] = []
+    for i, event in enumerate(st["events"]):
+        if event["kind"] != "observation":
+            continue
+        code = (event["payload"].get("result") or {}).get("error")
+        if not code:
+            continue
+        tool = event["payload"].get("tool")
+        recovered = any(
+            later["kind"] == "observation"
+            and later["payload"].get("tool") == tool
+            and not (later["payload"].get("result") or {}).get("error")
+            for later in st["events"][i + 1:]
+        )
+        if recovered and (tool, code) not in out:
+            out.append((tool, code))
+    return out
 
 
 def _auto_approve(case_id: str) -> None:
@@ -445,8 +472,23 @@ def _auto_approve(case_id: str) -> None:
             authorize_and_execute(case_id, proposal_id)
 
 
+def _recovery_observation(results: list[Result]) -> list[str]:
+    """Report recoveries only when this run actually contained one."""
+    seen = [(r.fixture_id, tool, code) for r in results for tool, code in r.recoveries]
+    if not seen:
+        return []
+    detail = "; ".join(f"{f} recovered from `{code}` on `{tool}`" for f, tool, code in seen)
+    return [
+        "**Typed tool errors are recovered from.** Tools return a typed failure the "
+        "model is expected to read and act on rather than an exception that ends the "
+        f"run. Observed in this run: {detail}.",
+        "",
+    ]
+
+
 def render_report(results: list[Result], started: datetime) -> str:
     questions = [c.question for c in results[0].checks] if results and results[0].checks else []
+    live = bool(results) and all(r.mode == "live" for r in results)
     lines = [
         "# Agent Evaluation Report",
         "",
@@ -496,10 +538,14 @@ def render_report(results: list[Result], started: datetime) -> str:
         "target necessary evidence and business outcomes rather than an exact trace, so "
         "a shorter or reordered investigation passes when it remains sufficient.",
         "",
-        "**The feedback loop was recorded from a live model and is replayed through the real "
-        "workflow.** F1 runs the recorded agent turns, executes, validates, and -- because "
-        "the supplier short-ships -- runs the second recorded agent pass against the changed "
-        "state. Q6 asserts that the second "
+        ("**The feedback loop is exercised end to end with the live model.** F1 runs the "
+         "agent, executes, validates, and -- because the supplier short-ships -- runs the "
+         "agent a second time against the changed state."
+         if live else
+         "**The feedback loop was recorded from a live model and is replayed through the "
+         "real workflow.** F1 runs the recorded agent turns, executes, validates, and -- "
+         "because the supplier short-ships -- runs the second recorded agent pass against "
+         "the changed state.") + " Q6 asserts that the second "
         "proposal differs from the first and that the case actually concludes; a replan "
         "that repeated the failed action, or left the case stuck in `reopened`, fails.",
         "",
@@ -510,13 +556,15 @@ def render_report(results: list[Result], started: datetime) -> str:
         "validation together. The engine is covered separately by unit tests for that "
         "reason.",
         "",
-        "**Typed tool errors are recovered from.** In F6 the first `propose_plan` call "
-        "omitted `disposition`; the tool returned `MISSING_FIELD` and the agent corrected "
-        "the call on its next turn rather than failing the run.",
-        "",
-        "**Recorded runs are one sample.** Model behaviour varies between runs. The "
-        "recordings in `recordings/` are the specific runs these results describe; "
-        "re-recording with `--live --record` may take a different path.",
+        *_recovery_observation(results),
+        ("**This is one live sample.** Model behaviour varies between runs; these results "
+         "are the run this report was generated from, not a guaranteed trace. The "
+         "transcripts in `recordings/` are from a separate recorded run and are what "
+         "`--replay` reproduces without an API key."
+         if live else
+         "**Recorded runs are one sample.** Model behaviour varies between runs. The "
+         "recordings in `recordings/` are the specific runs these results describe; "
+         "re-recording with `--live --record` may take a different path."),
         "", "## Detail", ""]
     for r in results:
         lines.append(f"### {r.fixture_id} — {FIXTURES[r.fixture_id].case.get('title', '')}")
