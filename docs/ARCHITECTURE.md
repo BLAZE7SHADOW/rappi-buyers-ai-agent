@@ -6,9 +6,9 @@
 flowchart TD
     UI[React workbench] -->|HTTP| API[FastAPI routes]
 
-    API --> RUNNER[Agent runner<br/>bounded loop]
+    API --> RUNNER[Agent runner<br/>adaptive bounded loop]
     RUNNER <--> PROV[Provider adapter<br/>Gemini / Anthropic]
-    RUNNER --> TOOLS[9 tools<br/>6 read · 1 compute · 2 case-write]
+    RUNNER -->|chooses next tool<br/>from prior result| TOOLS[9 tools<br/>6 read · 1 compute · 2 case-write]
 
     TOOLS --> ENGINE[Domain engine<br/>projection · constraints · candidates]
     TOOLS --> PROPOSE[Proposal service]
@@ -45,16 +45,21 @@ The domain layer's purity is what makes the claim "the agent cannot get the
 arithmetic wrong" checkable rather than rhetorical: those functions are tested in
 isolation with no mocking, and they are the only path to a number.
 
-## Request flow for one decision
+## Adaptive request flow for one decision
 
 ```
 POST /api/cases/{id}/run
-  → loop: get_case_context, get_inventory, get_demand_evidence,
-          get_open_orders, get_supplier_options, get_constraints
-  → loop: simulate_plan            (deterministic engine; the only source of numbers)
-  → loop: propose_plan             (persists proposal)
+  → get_case_context               (required entry point: trigger, policy, unknowns)
+  → model chooses the smallest next check that can change the decision
+       ↳ read inventory, demand, orders, suppliers or constraints as relevant
+       ↳ every selected call records a buyer-facing business reason
+       ↳ after each result: stop, ask buyer, inspect another source, or simulate
+       ↳ checks may be skipped, reordered or repeated; there is no fixed checklist
+  → simulate_plan                  (compare candidates or test one hypothesis)
+  → propose_plan | ask_buyer       (terminal action for this run)
         → gate.evaluate()          (server decides: blocked / approval / autonomous)
-  → case state = awaiting_approval | authorized | investigating
+        → autonomous → executor.execute() → validator.validate_action()
+  → case state = awaiting_approval | resolved | reopened | escalated | investigating
 
 POST /api/proposals/{id}/approve
   → revalidate against CURRENT state   (budget may have moved; quotes may have expired)
@@ -64,12 +69,17 @@ POST /api/proposals/{id}/approve
   → PASS → resolved   |   PARTIAL / FAIL → reopened, replan_count += 1
 ```
 
+The React page polls the case while a run is active and translates the append-only
+tool events into a buyer-facing path. It renders only calls that actually happened;
+the unmodified payload remains under the collapsed technical audit log.
+
 ## Data model
 
 18 tables. The ones carrying the design:
 
 | Table | Why it exists in this shape |
 |---|---|
+| `cases` | Stores trigger provenance in `signal_source`, the operational `as_of_date`, immutable `created_at`, and event-driven `updated_at` so queue dates are auditable rather than inferred in the UI. |
 | `case_events` | Append-only. Backs the UI timeline, the audit trail and the evaluation assertions. Never updated, only inserted. |
 | `actions` | `idempotency_key` is UNIQUE. This is the constraint that makes duplicate suppression enforceable rather than best-effort. |
 | `supplier_ledger` | The supplier's *own* record, deliberately separate from `purchase_orders`. |
@@ -125,8 +135,8 @@ does not depend on it:
 - Internal effects commit in a single transaction.
 - WAL mode so reads do not block the writer.
 
-Because persistence goes through SQLAlchemy Core, `DATABASE_URL=postgresql://…`
-points at Postgres or Supabase with no code changes.
+The SQL is intentionally portable, but PostgreSQL is not part of the verified demo:
+a deployment would still need the matching database driver and integration tests.
 
 ## Bounds
 

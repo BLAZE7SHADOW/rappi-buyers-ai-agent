@@ -14,8 +14,9 @@ actually worked**.
 > The LLM never does arithmetic, never approves itself, and never declares success.
 
 Each of those is a structural property, not a prompt instruction. The agent has no
-tool that can execute a purchase; every number it quotes comes from `simulate_plan`;
-and the validator that judges an outcome never sees what the agent claimed.
+tool that can execute a purchase; proposal terms are grounded in authoritative
+records and checked by `simulate_plan`; and the validator that judges an outcome
+never sees what the agent claimed.
 
 ## The artifact that matters: the validation verdict
 
@@ -98,42 +99,70 @@ One narrative covers Scenario 1 (accept/modify/reject/investigate), Scenario 2
 (supplier cannot fulfil), Scenario 4 (a constraint blocks the recommendation), and
 the full feedback loop.
 
+## Buyer workflow in the demo
+
+The home page is an exception queue rather than a chatbot. It shows the incoming
+signal, projected exposure, latest agent decision, workflow owner, validation status,
+and replan count for every case. Open a row to see the adaptive investigation path
+the agent actually chose, its reason and result for every step, the evidence,
+28-day projection, feasible and infeasible plans, decision proof checklist, approval
+gate, independent verdict, and technical audit log.
+
+Buyers can also choose **New case** and submit a recommendation for an existing
+product and fulfillment node. Before submission, the form previews the system's
+usable inventory, forecast, budget headroom, storage headroom, supplier coverage,
+and projected shortage. The buyer supplies the quantity and business reason; they
+cannot edit operational constraints. This separation matters: the agent is reviewing
+an incoming recommendation against source-system facts, not validating data the
+requester chose to make the recommendation look feasible.
+
+A buyer-created case can run against the live model. Recorded replay is intentionally
+limited to the six fixed evaluation fixtures because those transcripts are tied to
+known evidence and expected outcomes.
+
 ## Setup
 
-Requires **Python 3.11+** and **Node 18+**.
+Requires **Python 3.11+** and **Node 22.12+** (required by the frontend test and
+build toolchain).
 
 ```bash
 git clone https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent.git
 cd rappi-buyers-ai-agent
 
 python3.11 -m venv .venv
+source .venv/bin/activate       # macOS / Linux; your prompt will show (.venv)
 .venv/bin/pip install -r backend/requirements.txt
 
 cp .env.example .env          # then add your GEMINI_API_KEY
 ```
 
-The agent needs an LLM key. Gemini is the default; Anthropic works by changing
-`AI_PROVIDER`. Without a key the app still runs and every deterministic path works —
-only the live agent run is unavailable, and it says so explicitly rather than
-silently falling back.
+The agent needs an LLM key for live runs. Gemini is the default; Anthropic works by
+setting both `AI_PROVIDER` and an Anthropic `AI_MODEL`. Without a key, the browser
+offers an explicitly labelled replay of the recorded model runs so a reviewer can
+still exercise the real tools, gate, executor, validator, and F1 replan loop.
 
 ### Run
+
+Seed once, then start the backend and frontend in separate terminals:
 
 ```bash
 # 1. Seed the demo data
 cd backend && PYTHONPATH=..:. ../.venv/bin/python -m app.db.seed && cd ..
 
 # 2. Backend  → http://127.0.0.1:8000
-.venv/bin/python -m uvicorn app.main:app --app-dir backend --port 8000
+.venv/bin/python -m uvicorn app.main:app --app-dir backend --port 8000 --host 127.0.0.1
 
 # 3. Frontend → http://localhost:5173
-cd frontend && npm install && npm run dev
+cd frontend && npm ci && npm run dev
 ```
 
 ### Tests and evaluations
 
 ```bash
-.venv/bin/python -m pytest backend/tests -q         # 53 unit + integration tests
+.venv/bin/python -m pytest backend/tests -q         # 69 domain, service, loop + API tests
+
+cd frontend
+npm test && npm run lint && npm run build            # component tests + static checks
 
 cd backend
 PYTHONPATH=..:. ../.venv/bin/python -m evals.run_evals                 # replay (no key needed)
@@ -162,16 +191,23 @@ Nine tools. Six read evidence, one computes, two write to the case:
 | `get_supplier_options` | Quotes with price, MOQ, pack size, lead time, expiry, expedite terms |
 | `get_constraints` | Budget headroom, storage headroom, autonomy limits |
 | `simulate_plan` | **The only source of numbers** — projection before/after, feasibility |
-| `propose_plan` | Records the decision; the *server* decides if approval is needed |
+| `propose_plan` | Records the decision; the server gates it and executes autonomous plans |
 | `ask_buyer` | Asks for context or a judgement call, and pauses |
 
-**There is deliberately no `execute` tool.** Execution happens server-side after the
-gate authorises. That is why the agent cannot approve its own spending — it is a
-property of the architecture, not a promise about prompting.
+**There is deliberately no `execute` tool.** Execution happens server-side immediately
+when the gate grants delegated authority, or after a buyer approves. That is why the
+agent cannot approve its own spending — it is a property of the architecture, not a
+promise about prompting.
 
 The loop is bounded: 12 tool calls, 2 replans per case. Repeated identical calls are
 refused with an explanation instead of looping. Running out of budget produces a
 *pending investigation with findings*, never a fabricated recommendation.
+
+After the case context is loaded, there is no fixed evidence checklist. The model
+chooses the next tool from the trigger and the previous result, supplies a short
+buyer-facing reason for that choice, and may skip, repeat, or add checks. The case
+page renders this actual path as it happens; it does not display planned steps that
+the agent never chose.
 
 ## How decisions are made
 
@@ -209,7 +245,7 @@ Supplier confirmation and physical receipt are different milestones.
 | Investigate → decide → act | `app/agent/loop.py` → `services/gate.py` → `services/executor.py` |
 | Recommendation not assumed correct | **F1** rejects the 800; **F3** modifies it down |
 | Multiple interacting constraints | F1 (budget) · F3 (capacity **and** excess stock) · F6 (budget exhausted) |
-| **S1** accept / modify / reject / investigate | F2 · F3 · F1 · F4 |
+| **S1** accept / modify / reject | F2 · F3 · F1; `ask_buyer` supports investigation when evidence is insufficient |
 | **S2** supplier cannot fulfil | F1 round 2: partial confirmation → residual exposure |
 | S2 — source elsewhere / another supplier | Replan compares SUP-A vs SUP-B |
 | S2 — additional PO required | F1 replan creates the 600-unit follow-up |
@@ -245,7 +281,25 @@ Supplier confirmation and physical receipt are different milestones.
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — components, data model, durable-execution design
 - [docs/DECISIONS.md](docs/DECISIONS.md) — what was deliberately cut, and why
+- [docs/POLICY.md](docs/POLICY.md) — planning rules, constraints, authority and validation
+- [docs/DEMO.md](docs/DEMO.md) — repeatable reviewer walkthrough
 - [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — what this does not model
+- [backend/evals/report.md](backend/evals/report.md) — observed results against the brief’s six questions
+
+## Submission checklist
+
+| Required artifact | Included at |
+|---|---|
+| Complete source code | `backend/`, `frontend/`, `fixtures/` |
+| Setup and run instructions | [Setup](#setup), including supported runtimes and no-key replay |
+| Architecture diagram | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#components) |
+| Description of the approach | [The idea](#the-idea-in-one-paragraph), [How the agent works](#how-the-agent-works), [docs/DECISIONS.md](docs/DECISIONS.md) |
+| Test scenarios and evaluation | [Test fixtures](#test-fixtures), `backend/evals/`, [evaluation report](backend/evals/report.md) |
+| Mock APIs and datasets | `backend/app/integrations/mock_supplier.py`, `fixtures/`, recorded runs in `backend/evals/recordings/` |
+| Decision validation explanation | [Validation](#validation-in-three-layers), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), `backend/app/services/validator.py` |
+| Working demo | Local application at `http://localhost:5173`; walkthrough in [docs/DEMO.md](docs/DEMO.md) |
+| Environment template | [.env.example](.env.example) with provider, database, autonomy and loop settings |
+| Secret hygiene | `.env`, database files, virtual environments and build outputs are ignored by `.gitignore` |
 
 ## Modelling assumptions
 

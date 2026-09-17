@@ -23,16 +23,16 @@ to run infrastructure before seeing the demo.
 The five properties it would provide are implemented directly over SQLite and mapped
 explicitly in [ARCHITECTURE.md](ARCHITECTURE.md#durable-execution).
 
-## No Supabase, but the dialect is portable
+## No Supabase
 
 Hosted Supabase would mean either committing credentials (forbidden by the brief),
 sharing one mutable database across reviewers — where the demo-reset endpoint would
 wipe someone else's session — or requiring Docker. None of its strengths (auth,
 storage, realtime) are needed here.
 
-SQLAlchemy Core keeps the dialect portable, so `DATABASE_URL=postgresql://…` works
-unchanged. The "SQLite is single-writer, would this scale?" question therefore has a
-concrete answer rather than a hedge.
+SQLAlchemy Core keeps the queries portable, but only SQLite is verified in this
+submission. A production move to PostgreSQL would add its driver plus concurrency and
+migration tests rather than relying on an untested URL swap.
 
 ## No separate non-LLM demo runner
 
@@ -87,3 +87,27 @@ and verdicts. They never assert exact wording or a fixed tool order.
 An evaluation that demands one exact trace measures conformity rather than judgement,
 and would fail a run that reached the right answer by a better route. Where several
 plans are defensible, the fixture specifies an acceptable band.
+
+## A decision brief plus an adaptive activity path
+
+The case page leads with the exception, business impact, recommended change, approval
+owner and constraints. It also translates the actual investigation calls into
+quick-commerce language, including why the agent selected each call and what it
+found. This path is generated from persisted events rather than a fixed UI checklist.
+Detailed source records, simulated alternatives and raw payloads remain available
+through progressive disclosure; buyers do not have to interpret tool names or JSON.
+
+This follows the workflow pattern used by established procurement systems: Microsoft
+Dynamics presents planning changes as action messages that a planner may apply;
+SAP Guided Buying simulates and validates a requisition before approval; and Oracle
+routes approval tasks when human intervention is required. The implementation keeps
+the useful pattern without copying any vendor interface:
+
+- [Dynamics 365 action messages](https://learn.microsoft.com/en-us/dynamics365/supply-chain/master-planning/action-messages)
+- [SAP Guided Buying request flow](https://help.sap.com/doc/22983cba504a482eb7af2b59419e0eee/2508/en-US/GuidedBuyingAdministrationGuide.pdf)
+- [Oracle procurement approval tasks](https://docs.oracle.com/en/cloud/saas/procurement/25c/oapro/approval-task.html)
+
+Human approval is risk-based rather than universal. Hard constraints cannot be
+waived through an approval button. Feasible actions require a buyer when spend or
+fees exceed delegated authority, evidence is missing, or demand remains unserved.
+Low-risk feasible actions execute automatically and are still independently validated.

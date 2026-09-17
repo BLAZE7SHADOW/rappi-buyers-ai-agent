@@ -18,6 +18,11 @@ cd frontend && npm run dev
 Open `http://localhost:5173`. Confirm the supplier-behaviour selector on CASE-F1 reads
 **`confirm_partial`** — that is what drives the reopen.
 
+On the queue, briefly open **New case** to show that a buyer can submit an incoming
+quantity and business reason. The form previews inventory, forecast, budget, storage,
+supplier coverage and baseline exposure from system records; those constraints are
+read-only. Close the form and continue with F1 for the deterministic walkthrough.
+
 ---
 
 ## 1 · The situation (30s)
@@ -27,7 +32,7 @@ Open **F1 — SKU-1001**.
 > "The purchasing system recommends buying 800 units. The buyer's job is to decide
 > whether that's right. It isn't."
 
-Point at the **Evidence** panel:
+Point at the three **Supply picture** calculations:
 
 > "1,200 units on hand, but 150 are reserved and 50 are in quarantine — so 1,000 are
 > actually usable. Demand is 100 a day over a 28-day horizon, so 2,800 total. And
@@ -45,13 +50,22 @@ Point at the **Projection** chart:
 
 ## 3 · Run the agent (60s)
 
-Click **Run agent**. While it runs:
+Click **Run live agent**. If no API key is available, click **Replay recorded agent**;
+the UI labels the run as replayed while still exercising the real application workflow.
+While it runs:
 
 > "The agent has nine tools. Six read evidence, one runs the simulation, two write to
 > the case. There is deliberately no tool that places an order — it can propose, but
 > it cannot execute. That's architectural, not a prompt instruction."
 
-When it finishes, scroll to the **Plan comparison** table:
+Point at **Path chosen for this case** as it updates:
+
+> "This is not a predefined checklist. These are the calls the model actually chose
+> for this case, in order. Each row records the business question it intended to
+> answer and the result. It may skip, repeat or add checks, and a replan gets a new
+> path. The raw payloads remain available only in the technical audit log."
+
+When it finishes, open **Alternatives compared**:
 
 > "It called the simulator, which scored every option. Look at the bottom two rows —
 > the recommended 800 units, struck out. **$12,000 against a $10,000 budget.** The
@@ -99,7 +113,7 @@ Point at the state badge:
 
 ## 6 · Replan (45s)
 
-Click **Run agent** again.
+Click **Run live agent** (or **Replay recorded agent**) again.
 
 > "It's now looking at what actually happened, not what it hoped for. The expedite is
 > spent. 600 units are still short."
@@ -134,8 +148,8 @@ on another case and run it:
 
 ## Fallback if the live agent misbehaves
 
-Model runs vary. If a run goes sideways mid-demo, say so plainly and switch to the
-recorded evidence:
+Model runs vary. If a run goes sideways mid-demo, say so plainly, reset the demo, and
+use the clearly labelled **Replay recorded agent** button. The CLI equivalent is:
 
 ```bash
 cd backend && PYTHONPATH=..:. ../.venv/bin/python -m evals.run_evals --only F1
@@ -146,13 +160,15 @@ turns come from disk.
 
 ## Questions worth pre-loading
 
-- **"What if the agent hallucinates a number?"** It can't reach one. Every quantity,
-  cost and date comes from `simulate_plan`; unit price is read from the live quote and
-  expedite quantity from the existing order, so neither can originate in model text.
+- **"What if the agent hallucinates a number?"** Proposal terms are resolved from
+  system records and checked by `simulate_plan`; unit price comes from the supplier
+  quote and expedite quantity from the existing order. The gate re-simulates current
+  state before execution, so model prose cannot authorise a conflicting action.
 - **"Why not LangGraph or Temporal?"** Both evaluated and declined — see
   [DECISIONS.md](DECISIONS.md). The Temporal properties are implemented directly and
   mapped in [ARCHITECTURE.md](ARCHITECTURE.md#durable-execution).
-- **"Would this scale?"** Persistence is SQLAlchemy Core, so a Postgres URL works
-  unchanged. Concurrency uses optimistic version checks, not SQLite locking.
-- **"What doesn't it do?"** [LIMITATIONS.md](LIMITATIONS.md) — including the measured
-  finding that investigation paths are similar across fixtures.
+- **"Would this scale?"** The workflow uses durable state, idempotency keys and
+  optimistic versions. PostgreSQL and a workflow engine are the production path,
+  but only SQLite is verified in this submission.
+- **"What doesn't it do?"** [LIMITATIONS.md](LIMITATIONS.md) lists the modelling,
+  agent and infrastructure boundaries plainly.

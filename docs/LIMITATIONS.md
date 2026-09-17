@@ -45,11 +45,11 @@ written down is a different thing from one that is not.
 
 ## Agent behaviour
 
-- **Investigation paths are similar across fixtures.** The agent sweeps all six
-  evidence tools rather than branching on findings. With a small, cheap evidence
-  surface that is defensible, but it means adaptivity shows up in the
-  simulate-and-decide phase rather than in evidence gathering. Measured and reported
-  in `backend/evals/report.md`.
+- **Investigation paths remain model-dependent.** The runner does not prescribe an
+  evidence sequence: after loading the case, the model chooses the next relevant
+  source, explains the business question for that call, and may skip, repeat, or add
+  checks. The committed recordings are samples and several inspect broad evidence;
+  they should not be interpreted as a hard-coded workflow.
 - **Results are one sample.** Model behaviour varies between runs. The committed
   recordings are the specific runs the report describes.
 - **The tool budget is 12 calls and the replan budget is 2.** Both are demo values.
@@ -60,9 +60,9 @@ written down is a different thing from one that is not.
 
 ## Infrastructure
 
-- **SQLite, single writer.** The concurrency design (optimistic versions,
-  transactional effects) is dialect-agnostic and a Postgres URL works unchanged, but
-  that path is untested here.
+- **SQLite, single writer.** Queries use SQLAlchemy Core and writes use optimistic
+  versions, but PostgreSQL is untested and would require its driver and integration
+  coverage before claiming support.
 - **Runs are synchronous.** A run holds the HTTP request open for its duration. There
   is no queue, no worker and no scheduled background processing.
 - **No authentication.** Every caller is "the buyer". Approvals record an approver
