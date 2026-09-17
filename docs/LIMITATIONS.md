@@ -55,11 +55,14 @@ written down is a different thing from one that is not.
   executed, so there is no undo: reversing it would need a cancellation capability the
   agent deliberately does not have. The controls are the autonomy limits themselves,
   which decide what may execute unattended in the first place.
-- **Whether the agent asks is a judgement, not a rule.** F7 shows it asking when the
-  answer changes the order, and the other fixtures show it deciding when it does not,
-  but that boundary is the model applying a stated principle rather than a check the
-  code enforces. A different model, or a differently worded case, may draw it
-  elsewhere.
+- **Only unconfirmed *demand* is weighed.** The sensitivity check compares the order
+  with and without an asserted demand signal. An unconfirmed price move, lead-time
+  change or supplier risk would need the same treatment and does not have it yet.
+- **Materiality is a policy number, not a discovered one.** Ten percent of the order
+  with a 100-unit floor is a reasonable default, not a calibrated threshold. Tuning it
+  is a business decision; it sits in `PolicyConfig` for that reason.
+- **The signal has to be structured to be weighed.** A fact that arrives only as prose
+  in a note is still something only the model can notice.
 - **Results are one sample.** Model behaviour varies between runs. The committed
   recordings are the specific runs the report describes.
 - **The tool budget is 12 calls and the replan budget is 2.** Both are demo values.

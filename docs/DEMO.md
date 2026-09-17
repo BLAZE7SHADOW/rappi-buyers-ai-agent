@@ -161,9 +161,15 @@ on another case and run it:
 **F7 — the agent asks instead of guessing.** Sales flagged a possible 500-unit
 corporate order that exists in no forecast, promotion or PO.
 
-> "It can't verify this, and it changes the order by 500 units. So it doesn't guess
-> and it doesn't bury it in an assumption — it stops and asks, with both options
-> costed and a stated default. Answer it, and it resumes and orders to the answer."
+> "It can't verify this, and it changes the order by 500 units — the system plans
+> the horizon both ways and compares. So it doesn't guess and it doesn't bury it in
+> an assumption: it stops and asks, with both options costed and a default stated.
+> Answer it, and it resumes and orders to the answer."
+
+> "And this isn't the model deciding to be careful. The plan is tested against both
+> worlds, and if they need materially different orders the gate stops the case
+> whether or not the agent thought to ask. That mattered — before it worked this
+> way, the model asked in about half of runs."
 
 **F8 — the agent acts alone.** A small replenishment fully inside delegated authority.
 

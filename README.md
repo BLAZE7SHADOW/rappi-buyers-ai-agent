@@ -194,11 +194,14 @@ Nine tools. Six read evidence, one computes, two write to the case:
 | `propose_plan` | Records the decision; the server gates it and executes autonomous plans |
 | `ask_buyer` | Asks for context or a judgement call, and pauses |
 
-The agent asks the buyer only when the answer would change the order. An
-unverifiable fact that would not change the action is recorded as an assumption on
-the proposal instead. That line is worth stating precisely because it is easy to get
-wrong in both directions: an agent that never asks quietly guesses, and one that
-always asks is a form that takes longer than doing the job.
+A buyer is consulted when the answer would change the order — and that is decided by
+the engine, not by the model. An unconfirmed input is costed both ways; if the two
+worlds need materially different orders the gate stops the case and puts the question
+to the buyer with both quantities shown. Otherwise the agent decides and records its
+assumption. The line is easy to get wrong in both directions — an agent that never
+asks quietly guesses, and one that always asks is a form that takes longer than doing
+the job — which is exactly why it is not left to a prompt. See
+[docs/DECISIONS.md](docs/DECISIONS.md) for what happened when it was.
 
 **There is deliberately no `execute` tool.** Execution happens server-side immediately
 when the gate grants delegated authority, or after a buyer approves. That is why the
@@ -283,7 +286,7 @@ Supplier confirmation and physical receipt are different milestones.
 | **F4** | Sales running 2.6× forecast, promotion ends in 6 days | Bound the uplift; do not extrapolate |
 | **F5** | Supplier commits, response lost in transit | Recover by idempotency key; exactly one order |
 | **F6** | Real shortfall, zero budget | Escalate; no fabricated solution |
-| **F7** | Unconfirmed bulk order that no system of record holds | Ask the buyer, pause, then order to the answer |
+| **F7** | Unconfirmed bulk order that no system of record holds | Cost it both ways; stop for the buyer; order to the answer |
 | **F8** | Small, cheap, fully covered replenishment | Execute and validate autonomously; no human |
 
 ## Documentation

@@ -111,3 +111,45 @@ Human approval is risk-based rather than universal. Hard constraints cannot be
 waived through an approval button. Feasible actions require a buyer when spend or
 fees exceed delegated authority, evidence is missing, or demand remains unserved.
 Low-risk feasible actions execute automatically and are still independently validated.
+
+## Whether a human is needed is policy, not a judgement call
+
+The agent could always ask the buyer a question. Deciding *when* to ask was left to
+the model, and it was the one behaviour in the system that would not hold still:
+given a plan resting on an unconfirmed fact, it asked in three of six live runs and
+wrote the fact into `assumptions` in the other three. Both are defensible. Neither
+is reliable.
+
+Two rounds of prompt changes did not fix it, and the second over-corrected — the
+agent began stopping to ask about a forecast it should simply have used. That is
+the other failure mode, and it is worse: an agent that always asks is a form that
+takes longer than doing the job.
+
+The reason prompting could not fix it is structural. Everywhere else in this system,
+who may act is decided deterministically: the gate authorises spending, and the agent
+has no tool that can execute a purchase. The ask-or-assume decision was the one place
+that rule was not applied, and it was the one place behaviour varied. That is not a
+coincidence.
+
+So it moved into the engine. An unconfirmed input is now structured data rather than
+prose in a note, the plan is costed under both worlds, and if the two require
+materially different orders the gate stops the case and puts the actual question to
+the buyer — with both quantities shown. Materiality is proportional to the order with
+a floor, configured in `PolicyConfig` next to the autonomy limits, because 200 units
+means something different on an order of 300 than on one of 30,000.
+
+This is how the problem is handled outside a take-home. Planning systems raise planner
+exceptions from configured tolerances rather than from an opinion; SAP release
+strategies and Coupa approval chains route on deterministic attributes; BPMN engines
+model a human step as a node with entry conditions that automation cannot skip; and
+running a plan under both assumptions before escalating is ordinary S&OP practice.
+The common thread is that the model's judgement is an input to policy, never the
+authority over it.
+
+The agent keeps `ask_buyer`, and after the analysis was exposed to it as data it began
+asking reliably on its own — five live runs out of five. That is the better path,
+because it asks earlier. The gate is the backstop for when it does not, and a service
+test proves that path with no model involved at all. The evaluation scores that a
+person was consulted before authorisation, and only reports which of the two raised
+it: requiring one specific mechanism would be asserting a trace, which is the mistake
+this evaluation exists to avoid.
