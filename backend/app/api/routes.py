@@ -22,7 +22,7 @@ from app.db.repo import append_event, load_case, load_events
 from app.domain.candidates import baseline_projection, rank, simulate_all, simulation_to_dict
 from app.domain.projection import projection_rows, summarize
 from app.domain.types import EventKind
-from app.services.context import build_context, missing_evidence
+from app.services.context import build_context, missing_evidence, unconfirmed_signal
 from app.services.proposals import (
     ApprovalRequired, InvalidTransition, StalePlan, approve, decline, validate_and_route,
 )
@@ -294,6 +294,10 @@ def get_case(case_id: str):
                 for q in ctx.quotes
             ],
             "unknowns": missing_evidence(ctx),
+            "unconfirmed_input": (
+                unconfirmed_signal(case, ctx).to_dict()
+                if unconfirmed_signal(case, ctx) else None
+            ),
         }
 
     return {

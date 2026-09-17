@@ -378,3 +378,101 @@ def test_a_budget_that_disappears_is_caught_before_the_supplier_is_called(db):
     with transaction() as conn:
         assert conn.execute(select(sch.actions)).mappings().all() == []
         assert conn.execute(select(sch.supplier_ledger)).mappings().all() == []
+
+
+# --------------------------------------------------------------------------- #
+# Unconfirmed inputs: policy decides who is involved, not the model
+# --------------------------------------------------------------------------- #
+
+
+def test_a_plan_resting_on_an_unconfirmed_input_stops_for_a_person(db):
+    """No model runs in this test, and that is the entire point.
+
+    Whether a human is needed used to depend on the agent choosing `ask_buyer`,
+    which it did in roughly half of live runs. It is now a property of the plan.
+    """
+    from app.db import schema as sch
+    from app.db.engine import transaction
+
+    case_id = make_case(demand_per_day=60, po=None, expedite=False,
+                        budget_minor=5_000_000, unit_price=900)
+    with transaction() as conn:
+        conn.execute(sch.cases.update().where(sch.cases.c.case_id == case_id).values(
+            trigger_payload=json.dumps({
+                "recommended_qty": 1300,
+                "unverified_demand_signal": {
+                    "units": 500, "needed_by": "2026-09-30",
+                    "source": "sales", "confirmed": False,
+                    "description": "possible corporate bulk order",
+                },
+            })))
+
+    result = _propose(db, case_id, disposition="accept", action_type="create_po",
+                      args=create_po_args(qty=1300))
+
+    assert "decision_sensitive_to_unconfirmed_input" in result["gate"]["triggers"]
+    assert result["case_state"] == "awaiting_buyer"
+    assert result["sensitivity"]["material"] is True
+
+    with transaction() as conn:
+        question = conn.execute(select(sch.interactions)).mappings().one()
+    assert question["answer"] is None
+    assert json.loads(question["context_json"])["raised_by"] == "policy_gate"
+    # The buyer is shown both worlds, not just told something is uncertain.
+    assert str(result["sensitivity"]["quantity_without"]) in question["question"]
+    assert str(result["sensitivity"]["quantity_with"]) in question["question"]
+    assert len(json.loads(question["options_json"])) == 2
+
+
+def test_an_immaterial_unconfirmed_input_does_not_interrupt_anyone(db):
+    """Asking about everything is the other failure mode."""
+    from app.db import schema as sch
+    from app.db.engine import transaction
+
+    case_id = make_case(demand_per_day=60, po=None, expedite=False,
+                        budget_minor=5_000_000, unit_price=900)
+    with transaction() as conn:
+        conn.execute(sch.cases.update().where(sch.cases.c.case_id == case_id).values(
+            trigger_payload=json.dumps({
+                "recommended_qty": 1300,
+                "unverified_demand_signal": {
+                    "units": 5, "needed_by": "2026-09-30",
+                    "confirmed": False, "description": "a handful of extra units",
+                },
+            })))
+
+    result = _propose(db, case_id, disposition="accept", action_type="create_po",
+                      args=create_po_args(qty=1300))
+
+    assert "decision_sensitive_to_unconfirmed_input" not in result["gate"]["triggers"]
+    assert result["case_state"] != "awaiting_buyer"
+    assert result["sensitivity"]["material"] is False
+    with transaction() as conn:
+        assert conn.execute(select(sch.interactions)).mappings().all() == []
+
+
+def test_the_gate_does_not_re_ask_a_question_the_agent_already_asked(db):
+    from app.agent.tools import ask_buyer
+    from app.db import schema as sch
+    from app.db.engine import transaction
+
+    case_id = make_case(demand_per_day=60, po=None, expedite=False,
+                        budget_minor=5_000_000, unit_price=900)
+    with transaction() as conn:
+        conn.execute(sch.cases.update().where(sch.cases.c.case_id == case_id).values(
+            trigger_payload=json.dumps({
+                "recommended_qty": 1300,
+                "unverified_demand_signal": {
+                    "units": 500, "needed_by": "2026-09-30",
+                    "confirmed": False, "description": "possible corporate bulk order",
+                },
+            })))
+    ask_buyer(case_id, {"question": "Is the corporate bulk order confirmed?"})
+
+    _propose(db, case_id, disposition="accept", action_type="create_po",
+             args=create_po_args(qty=1300))
+
+    with transaction() as conn:
+        questions = conn.execute(select(sch.interactions)).mappings().all()
+    assert len(questions) == 1
+    assert json.loads(questions[0]["context_json"])["raised_by"] == "agent"

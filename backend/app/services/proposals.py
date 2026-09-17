@@ -23,8 +23,9 @@ from app.db.repo import append_event, load_case, set_case_state
 from app.domain.candidates import simulate, simulation_to_dict
 from app.domain.types import ActionType, Candidate, EventKind, Verdict
 from app.services import gate as gate_mod
+from app.services.interactions import open_question
 from app.services import validator as validator_mod
-from app.services.context import build_context, missing_evidence
+from app.services.context import build_context, missing_evidence, unconfirmed_signal
 from app.services.executor import ActionOutcomeUnknown, execute
 
 
@@ -117,7 +118,8 @@ def create_proposal(
 
     simulation = simulate(ctx, candidate)
     gaps = missing_evidence(ctx)
-    decision = gate_mod.evaluate(simulation, missing_evidence=gaps)
+    sensitivity = unconfirmed_signal(case, ctx)
+    decision = gate_mod.evaluate(simulation, missing_evidence=gaps, sensitivity=sensitivity)
 
     proposal_id = f"PROP-{uuid.uuid4().hex[:8].upper()}"
     prior = conn.execute(
@@ -164,12 +166,45 @@ def create_proposal(
                  {"proposal_id": proposal_id, "version": version,
                   "disposition": disposition, "action_type": action_type,
                   "gate": decision.to_dict(), "simulation": sim_dict,
-                  "missing_evidence": gaps})
+                  "missing_evidence": gaps,
+                  "sensitivity": sensitivity.to_dict() if sensitivity else None})
 
     new_state = ("investigating" if decision.blocked
                  else "awaiting_approval" if decision.approval_required
                  else "authorized")
     set_case_state(conn, case["case_id"], new_state)
+
+    # An approval button cannot answer "is this order real?", so when the gate
+    # finds the plan turns on an unconfirmed input, the case asks the actual
+    # question instead. The agent may already have asked during investigation; if
+    # it did, the case is not left waiting on a second, duplicate question.
+    if "decision_sensitive_to_unconfirmed_input" in decision.triggers:
+        already_open = conn.execute(
+            select(s.interactions).where(
+                s.interactions.c.case_id == case["case_id"],
+                s.interactions.c.answer.is_(None),
+            )
+        ).mappings().first()
+        answered = conn.execute(
+            select(s.interactions).where(
+                s.interactions.c.case_id == case["case_id"],
+                s.interactions.c.answer.is_not(None),
+            )
+        ).mappings().first()
+        if already_open is None and answered is None:
+            open_question(
+                conn, case["case_id"],
+                question=sensitivity.question(),
+                kind="clarification",
+                options=sensitivity.options(),
+                context=sensitivity.to_dict(),
+                recommendation=(
+                    f"Default to {sensitivity.quantity_without} units unless the signal "
+                    f"is confirmed; unconfirmed demand is not demand."
+                ),
+                raised_by="policy_gate",
+            )
+            new_state = "awaiting_buyer"
 
     return {
         "proposal_id": proposal_id,
@@ -179,6 +214,7 @@ def create_proposal(
         "blocked": decision.blocked,
         "simulation": sim_dict,
         "missing_evidence": gaps,
+        "sensitivity": sensitivity.to_dict() if sensitivity else None,
         "case_state": new_state,
     }
 

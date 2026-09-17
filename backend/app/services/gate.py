@@ -5,8 +5,8 @@ Three outcomes, and the distinction between them matters:
 * **BLOCKED** -- a hard constraint fails. Budget and capacity are financial and
   physical facts; no approval button can waive them. Resolving these requires
   recording new budget or new space and revalidating.
-* **APPROVAL_REQUIRED** -- feasible, but outside delegated authority. A human
-  decides.
+* **APPROVAL_REQUIRED** -- feasible, but outside delegated authority, or resting
+  on an unconfirmed input that would change the order. A human decides.
 * **AUTONOMOUS** -- feasible and within limits. Executes without a human.
 
 The gate runs server-side and is the only path to execution. The agent has no
@@ -51,6 +51,7 @@ def evaluate(
     simulation: SimulationResult,
     *,
     missing_evidence: list[str] | None = None,
+    sensitivity=None,
     spend_limit_minor: int | None = None,
     fee_limit_minor: int | None = None,
 ) -> GateDecision:
@@ -87,6 +88,13 @@ def evaluate(
     # Decision-critical unknowns block automatic execution. Missing data is not zero.
     if missing:
         triggers.append("missing_evidence")
+
+    # An unconfirmed input that would change the order is the same class of
+    # problem: nobody can responsibly place either order without asking first.
+    # Deciding this here rather than in the prompt is the point -- whether a human
+    # is needed is policy, and policy does not vary between runs.
+    if sensitivity is not None and sensitivity.material:
+        triggers.append("decision_sensitive_to_unconfirmed_input")
 
     cost = candidate.total_cost_minor
     if cost > spend_limit:
@@ -135,4 +143,8 @@ def _explain(triggers, candidate, simulation, spend_limit, fee_limit, missing) -
         )
     if "missing_evidence" in triggers:
         parts.append("decision-critical evidence is missing: " + ", ".join(missing))
+    if "decision_sensitive_to_unconfirmed_input" in triggers:
+        parts.append(
+            "the order depends on an unconfirmed input that no system of record holds"
+        )
     return "Buyer approval required because " + "; ".join(parts) + "."

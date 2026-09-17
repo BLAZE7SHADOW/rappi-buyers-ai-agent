@@ -7,6 +7,7 @@ the validator could "confirm" a plan the simulator never actually evaluated.
 
 from __future__ import annotations
 
+import json
 from datetime import date
 
 from sqlalchemy.engine import Connection
@@ -56,6 +57,21 @@ def build_context(
         policy=policy,
         demand_override=demand_override,
     )
+
+
+def unconfirmed_signal(case: dict, ctx: PlanningContext):
+    """Does this case rest on something asserted but not recorded anywhere?
+
+    Returns a ``SensitivityResult`` when the case carries an unconfirmed signal,
+    so callers can see both worlds even when the difference turns out to be
+    immaterial. ``None`` when there is nothing to weigh.
+    """
+    from app.domain.sensitivity import UnverifiedSignal, evaluate
+
+    payload = case.get("trigger_payload") or {}
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    return evaluate(ctx, UnverifiedSignal.from_payload(payload.get("unverified_demand_signal")))
 
 
 def missing_evidence(ctx: PlanningContext) -> list[str]:

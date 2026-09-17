@@ -26,7 +26,7 @@ from app.domain.candidates import (
 )
 from app.domain.projection import projection_rows, summarize
 from app.domain.types import EventKind
-from app.services.context import build_context, missing_evidence
+from app.services.context import build_context, missing_evidence, unconfirmed_signal
 from app.services.proposals import _resolve_candidate, create_proposal
 
 
@@ -58,6 +58,7 @@ def get_case_context(case_id: str, args: dict) -> dict:
         if case is None:
             raise ToolError("CASE_NOT_FOUND", f"No case {case_id}")
         ctx = build_context(conn, case)
+        sensitivity = unconfirmed_signal(case, ctx)
         from sqlalchemy import select
         from app.db import schema as s
         priors = conn.execute(
@@ -93,6 +94,10 @@ def get_case_context(case_id: str, args: dict) -> dict:
             for a in answers if a["answer"]
         ],
         "known_unknowns": missing_evidence(ctx),
+        # Stated as data, with both worlds already costed, so this is a fact to
+        # act on rather than a hint buried in the trigger prose. Policy already
+        # routes a material one to the buyer; asking earlier yourself is better.
+        "unconfirmed_input": sensitivity.to_dict() if sensitivity else None,
     }
 
 
@@ -331,23 +336,18 @@ def ask_buyer(case_id: str, args: dict) -> dict:
     if not args.get("question"):
         raise ToolError("MISSING_FIELD", "ask_buyer requires 'question'.")
 
-    interaction_id = f"INT-{uuid.uuid4().hex[:8].upper()}"
+    from app.services.interactions import open_question
+
     with transaction() as conn:
-        from app.db import schema as s
-        conn.execute(s.interactions.insert().values(
-            interaction_id=interaction_id, case_id=case_id,
-            kind=args.get("kind", "clarification"),
+        interaction_id = open_question(
+            conn, case_id,
             question=args["question"],
-            context_json=json.dumps(args.get("context") or {}),
-            options_json=json.dumps(args.get("options") or []),
+            kind=args.get("kind", "clarification"),
+            options=args.get("options") or [],
+            context=args.get("context") or {},
             recommendation=args.get("recommendation", ""),
-        ))
-        append_event(conn, case_id, EventKind.QUESTION, "Question for the buyer",
-                     {"interaction_id": interaction_id, "question": args["question"],
-                      "options": args.get("options") or [],
-                      "recommendation": args.get("recommendation", "")})
-        from app.db.repo import set_case_state
-        set_case_state(conn, case_id, "awaiting_buyer")
+            raised_by="agent",
+        )
 
     return {"interaction_id": interaction_id, "state": "awaiting_buyer",
             "note": "The run pauses here until the buyer answers."}
