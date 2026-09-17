@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17T21:02:56.230788",
+  "generated": "2026-09-17T21:44:27.512131",
   "live": true,
   "results": [
     {
@@ -9,7 +9,7 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed \u2192 replanned (proposed)",
-      "tool_calls": 18,
+      "tool_calls": 19,
       "replanned": true,
       "asked_buyer": false,
       "passed": true,
@@ -60,7 +60,7 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 10,
+      "tool_calls": 9,
       "replanned": false,
       "asked_buyer": false,
       "passed": true,
@@ -264,7 +264,7 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 9,
+      "tool_calls": 7,
       "replanned": false,
       "asked_buyer": false,
       "passed": true,
@@ -280,7 +280,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered."
+          "detail": "Consulted 7 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -315,7 +315,7 @@
       "provider": "gemini",
       "model": "gemini-3.6-flash",
       "outcome": "awaiting_buyer \u2192 answered (proposed)",
-      "tool_calls": 19,
+      "tool_calls": 17,
       "replanned": false,
       "asked_buyer": true,
       "passed": true,

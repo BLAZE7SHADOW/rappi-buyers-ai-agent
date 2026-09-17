@@ -235,7 +235,14 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
 
 
 def _buyer_question_check(q: str, expected: dict, st: dict) -> Check | None:
-    """For fixtures whose decisive fact exists in no system of record."""
+    """For fixtures whose decisive fact exists in no system of record.
+
+    This asserts the *outcome* -- a person was consulted before the plan could be
+    authorised -- rather than the route. Whether the agent noticed during
+    investigation or the policy gate caught it at proposal time is reported but
+    not scored: requiring one specific mechanism would be asserting a trace, which
+    is the mistake this harness exists to avoid.
+    """
     if not expected.get("expects_buyer_question"):
         return None
     questions = [e for e in st["events"] if e["kind"] == "question"]
@@ -243,18 +250,25 @@ def _buyer_question_check(q: str, expected: dict, st: dict) -> Check | None:
     if not questions:
         return Check(
             q, False,
-            "The decisive fact is in no system of record, but the agent never asked "
-            "the buyer; it decided on an assumption instead.",
+            "The plan rests on an unconfirmed input that changes the order, but "
+            "nobody was asked about it and the plan proceeded anyway.",
         )
     if not answers:
-        return Check(q, False, "The agent asked the buyer but the answer was never recorded.")
-    proposals = [e for e in st["events"] if e["kind"] == "proposal"]
-    if proposals and proposals[0]["seq"] < questions[0]["seq"]:
-        return Check(q, False, "The agent proposed before asking, so the answer changed nothing.")
+        return Check(q, False, "A question was raised but the answer was never recorded.")
+
+    # The question has to precede authorisation, or the answer changed nothing.
+    authorising = [e for e in st["events"]
+                   if e["kind"] == "action" or e["kind"] == "approval"]
+    if authorising and authorising[0]["seq"] < questions[0]["seq"]:
+        return Check(q, False, "The plan was authorised before the question was asked.")
+
+    raised_by = questions[0]["payload"].get("raised_by", "agent")
+    route = ("the agent recognised it during investigation" if raised_by == "agent"
+             else "the policy gate caught it at proposal time")
     return Check(
         q, True,
-        f"Asked the buyer what no tool could answer (\"{questions[0]['payload'].get('question', '')[:90]}\") "
-        f"and waited for the answer before deciding.",
+        f"An unconfirmed input that moves the order was put to the buyer before "
+        f"authorisation -- {route}. Q: \"{questions[0]['payload'].get('question', '')[:110]}\"",
     )
 
 
@@ -565,6 +579,26 @@ def _auto_approve(case_id: str) -> None:
             authorize_and_execute(case_id, proposal_id)
 
 
+def _variability_observation(results: list[Result]) -> list[str]:
+    """Report which route raised F7's question, since only the route can vary."""
+    f7 = next((r for r in results if r.fixture_id == "F7"), None)
+    if f7 is None:
+        return []
+    return [
+        "**Whether a human is consulted is policy; only the route varies.** F7 turns on "
+        "an unconfirmed input, and the model's willingness to stop for one is genuinely "
+        "unstable -- measured over six live runs before this was addressed, it asked in "
+        "three and wrote the fact into `assumptions` in the other three. Rather than "
+        "prompt harder, the plan is now tested against both worlds and the gate stops "
+        "the case when the two require materially different orders, which does not vary "
+        "between runs. The agent keeps its own `ask_buyer`, because noticing earlier is "
+        "better; the gate is the backstop for when it does not. The evaluation scores "
+        "that a person was asked before authorisation and merely reports which of the "
+        "two raised it.",
+        "",
+    ]
+
+
 def _recovery_observation(results: list[Result]) -> list[str]:
     """Report recoveries only when this run actually contained one."""
     seen = [(r.fixture_id, tool, code) for r in results for tool, code in r.recoveries]
@@ -650,6 +684,7 @@ def render_report(results: list[Result], started: datetime) -> str:
         "reason.",
         "",
         *_recovery_observation(results),
+        *_variability_observation(results),
         ("**This is one live sample.** Model behaviour varies between runs; these results "
          "are the run this report was generated from, not a guaranteed trace. The "
          "transcripts in `recordings/` are from a separate recorded run and are what "

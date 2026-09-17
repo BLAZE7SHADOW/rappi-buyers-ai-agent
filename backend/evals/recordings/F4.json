@@ -17,7 +17,7 @@
         {
           "name": "get_inventory",
           "args": {
-            "reason": "Check current stock levels including on-hand, reserved, quarantined, and usable inventory for SKU-1004."
+            "reason": "Check current stock levels for SKU-1004 at NODE-BOG-F4 to determine usable inventory."
           }
         }
       ]
@@ -28,7 +28,7 @@
         {
           "name": "get_demand_evidence",
           "args": {
-            "reason": "Check recent actual sales vs forecast and promotional windows to verify demand spike.",
+            "reason": "Check recent sales history and updated forecast for SKU-1004 to evaluate the demand spike.",
             "lookback_days": 14
           }
         }
@@ -40,7 +40,7 @@
         {
           "name": "get_open_orders",
           "args": {
-            "reason": "Check for existing open purchase orders for SKU-1004."
+            "reason": "Check existing purchase orders for SKU-1004 to see if supply is already scheduled."
           }
         }
       ]
@@ -51,7 +51,7 @@
         {
           "name": "get_supplier_options",
           "args": {
-            "reason": "Retrieve supplier quotes and lead times for SKU-1004."
+            "reason": "Check available suppliers, prices, lead times, and MOQs for SKU-1004."
           }
         }
       ]
@@ -62,7 +62,7 @@
         {
           "name": "get_constraints",
           "args": {
-            "reason": "Check available budget, storage capacity, and autonomy limits."
+            "reason": "Check budget, dated storage headroom, and buyer autonomy limits."
           }
         }
       ]
@@ -73,7 +73,7 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Evaluate baseline plan and candidate plans to see projections and stockout/excess risks."
+            "reason": "Simulate candidate plans for SKU-1004 at NODE-BOG-F4 to identify baseline shortages and candidate outcomes."
           }
         }
       ]
@@ -84,11 +84,11 @@
         {
           "name": "simulate_plan",
           "args": {
-            "reason": "Simulate placing PO for 600 units with SUP-A arriving on 2026-09-24.",
-            "action_type": "create_po",
-            "expected_receipt_date": "2026-09-24",
             "qty": 600,
-            "supplier_id": "SUP-A"
+            "supplier_id": "SUP-A",
+            "reason": "Test creating PO for 600 units from SUP-A arriving on 2026-09-24 to verify full mitigation of shortage and policy compliance.",
+            "action_type": "create_po",
+            "expected_receipt_date": "2026-09-24"
           }
         }
       ]
@@ -99,9 +99,12 @@
         {
           "name": "propose_plan",
           "args": {
-            "assumptions": [
-              "Sales will return to baseline forecast of 50 units/day after promotion PROMO-1 ends on 2026-09-23."
-            ],
+            "action_type": "create_po",
+            "action_args": {
+              "supplier_id": "SUP-A",
+              "qty": 600,
+              "expected_receipt_date": "2026-09-24"
+            },
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
@@ -111,21 +114,18 @@
               "get_constraints",
               "simulate_plan"
             ],
-            "rationale": "Investigated demand spike trigger for SKU-1004 at NODE-BOG-F4. On-hand usable stock is 1,000 units with 0 open orders. Demand evidence shows recent sales averaged 130 units/day (2.6x forecast of 50 units/day), but this uplift is driven by promotion PROMO-1 (Spike promo), which runs from 2026-09-07 to 2026-09-23. Per policy, promotional uplift should not be extrapolated past the promotion end date. Over the 28-day planning horizon, baseline demand is 1,400 units (50 units/day). Without replenishment, stock is exhausted on 2026-10-06, resulting in 400 total unmet units from 2026-10-07 to 2026-10-14 and 12 days below safety stock. Supplier SUP-A offers SKU-1004 at $14.00/unit with a 7-day lead time (expected receipt 2026-09-24), MOQ of 300 units, and pack size of 50 units. Ordering 600 units from SUP-A arriving on 2026-09-24 completely eliminates all 400 unmet units and leaves 200 units closing stock (matching safety stock of 200 units, representing 4.0 days of cover, within the 12-day policy max). Total cost is $8,400.00, which is fully within the available budget of $50,000.00, and peak volume of 45.0 m\u00b3 is well within the 200.0 m\u00b3 storage headroom. Because the total spend of $8,400.00 exceeds the buyer autonomy spend limit of $2,000.00, approval is required.",
-            "important_factors": [
-              "Recent demand uplift (130 units/day) is driven by active promotion PROMO-1 which ends on 2026-09-23 and should not be extrapolated post-promo.",
-              "Baseline demand forecast of 50 units/day over 28 days totals 1,400 units against 1,000 usable units on hand, resulting in 400 unmet demand units starting 2026-10-07 without replenishment.",
-              "Supplier SUP-A lead time is 7 days, placing receipt on 2026-09-24, well before stockout on 2026-10-07.",
-              "Order of 600 units (pack size 50, MOQ 300) eliminates all 400 unmet units and maintains closing inventory of 200 units (safety stock limit / 4.0 days cover).",
-              "Total order cost of $8,400.00 is within $50,000.00 budget and post-receipt storage of 45.0 m\u00b3 is within 200.0 m\u00b3 capacity; total spend exceeds $2,000.00 autonomy limit requiring buyer approval."
+            "disposition": "modify",
+            "assumptions": [
+              "Demand returns to the baseline forecast of 50 units/day following the conclusion of PROMO-1 on 2026-09-23."
             ],
-            "action_args": {
-              "expected_receipt_date": "2026-09-24",
-              "supplier_id": "SUP-A",
-              "qty": 600
-            },
-            "disposition": "accept",
-            "action_type": "create_po"
+            "rationale": "Investigation of the demand spike trigger reveals that recent sales averaging 130 units/day are driven by promotion PROMO-1 (2.6x uplift), which ends on 2026-09-23. Demand should not be extrapolated past that date. Extrapolating the spike across the 28-day horizon generates an order of 3,550 units, which is infeasible due to exceeding the 12-day excess stock policy limit (600 units).\n\nUnder the baseline forecast of 50 units/day, current usable inventory of 1,000 units will result in a first stockout date on 2026-10-07, with 12 days below safety stock and a total of 400 unmet units.\n\nTo address the stockout without overstocking, we modify the plan to place a purchase order for 600 units with SUP-A ($14.00/unit), arriving on 2026-09-24. Simulation confirms this order reduces total unmet units from 400 to 0, maintains 200 units of closing inventory (4.0 days of cover), and satisfies MOQ (300) and pack size (50). The order cost of $8,400.00 is well within available budget ($50,000.00) and storage capacity (peak occupancy 45 m\u00b3 vs 200 m\u00b3 limit), but exceeds the buyer autonomy spend limit of $2,000.00, requiring buyer approval.",
+            "important_factors": [
+              "Recent sales average 130 units/day due to active promotion PROMO-1 (2.6x uplift), which ends on 2026-09-23.",
+              "Extrapolating the sales spike across the horizon would yield an infeasible purchase order of 3,550 units, violating the 12-day max cover policy (600 units limit).",
+              "At the baseline forecast of 50 units/day, current usable inventory (1,000 units) results in a stockout starting 2026-10-07 with 400 total unmet units.",
+              "Ordering 600 units from SUP-A for delivery on 2026-09-24 fully eliminates the 400 unmet units and leaves 200 units of safety stock at horizon end.",
+              "The PO cost of $8,400.00 is feasible within available budget ($50,000.00) and storage capacity, but exceeds the $2,000.00 buyer autonomy limit, requiring approval."
+            ]
           }
         }
       ]

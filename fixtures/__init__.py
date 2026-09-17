@@ -16,6 +16,7 @@ integer minor units (cents); quantities are integers.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
@@ -503,9 +504,21 @@ F7 = {
     "capacity_projections": _capacity(_F7_NODE, capacity_m3=400.0, occupied_m3=20.0),
     "case": _case(
         "CASE-F7", "F7", _F7_SKU, _F7_NODE, "recommendation",
-        '{"recommended_qty": 1300, "note": "Sales flagged a possible one-off bulk order '
-        'of about 500 units from a corporate customer this month. It is not confirmed, '
-        'and it is not in the forecast."}',
+        json.dumps({
+            "recommended_qty": 1300,
+            "note": ("Sales flagged a possible one-off bulk order of about 500 units "
+                     "from a corporate customer this month. It is not confirmed, and "
+                     "it is not in the forecast."),
+            # Structured, not just prose: the engine can weigh this, so whether a
+            # human is needed stops being a judgement the model makes each run.
+            "unverified_demand_signal": {
+                "units": 500,
+                "needed_by": day(13).isoformat(),
+                "source": "sales team",
+                "confirmed": False,
+                "description": "possible one-off corporate bulk order",
+            },
+        }),
         "Ground Coffee · unconfirmed bulk order changes the answer", "confirm_full",
     ),
     "expected": {
