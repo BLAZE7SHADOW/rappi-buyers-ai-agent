@@ -8,29 +8,37 @@ export function ControlsBar({
   onReset,
   onInjectBehavior,
   currentBehavior,
+  canRun,
+  liveAvailable,
+  replayAvailable,
+  nextActor,
 }: {
   running: boolean;
-  onRun: () => Promise<void>;
+  onRun: (mode: 'live' | 'replay') => Promise<void>;
   onReset: () => Promise<void>;
   onInjectBehavior: (behavior: string) => Promise<void>;
   currentBehavior: string;
+  canRun: boolean;
+  liveAvailable: boolean;
+  replayAvailable: boolean;
+  nextActor: string;
 }) {
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const [behavior, setBehavior] = useState(currentBehavior);
-
   return (
-    <div className="rounded-lg border border-violet-800/50 bg-violet-950/10 p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-violet-300">
-          Simulation controls
-        </span>
-        <span className="text-xs text-gray-500">— demo-only tools, not a real supplier integration</span>
+    <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4 shadow-lg shadow-black/10">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-300">Next step</p>
+          <p className="mt-1 text-sm text-gray-400">
+            {canRun ? 'Investigate this case with the purchasing agent.' : `Waiting on ${nextActor}.`}
+          </p>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <button
-          disabled={running}
-          onClick={() => onRun()}
-          className="flex items-center gap-2 rounded-md bg-sky-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-50"
+          disabled={running || !canRun || !liveAvailable}
+          onClick={() => onRun('live')}
+          className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {running && (
             <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -38,15 +46,31 @@ export function ControlsBar({
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
           )}
-          {running ? 'Running agent…' : 'Run agent'}
+          {running ? 'Running agent…' : 'Run live agent'}
         </button>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-400">Supplier behaviour:</label>
+        <button
+          disabled={running || !canRun || !replayAvailable}
+          onClick={() => onRun('replay')}
+          className="rounded-lg border border-violet-700 bg-violet-950/30 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-900/40 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Replay recorded agent
+        </button>
+
+        {!liveAvailable && <span className="text-xs text-gray-500">Add an API key to enable live runs.</span>}
+        {!replayAvailable && <span className="text-xs text-gray-500">Recorded replay is only available for evaluation fixtures.</span>}
+
+        <details className="w-full border-t border-gray-800 pt-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Demo controls
+          </summary>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+          <label htmlFor="supplier-behavior" className="text-xs text-gray-400">Next supplier response</label>
           <select
-            value={behavior}
+            id="supplier-behavior"
+            value={currentBehavior}
             onChange={(e) => {
-              setBehavior(e.target.value);
               onInjectBehavior(e.target.value);
             }}
             className="rounded-md border border-gray-700 bg-gray-900 px-2 py-1.5 text-sm text-gray-200"
@@ -88,6 +112,8 @@ export function ControlsBar({
             </span>
           )}
         </div>
+          </div>
+        </details>
       </div>
     </div>
   );

@@ -66,11 +66,29 @@ class ReplayProvider(Provider):
     result worth reporting.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, segment: int | None = None):
         data = json.loads(path.read_text())
         self.name = f"replay:{data.get('provider', 'unknown')}"
         self.model = data.get("model", "unknown")
-        self._turns = [_turn_from_dict(t) for t in data["turns"]]
+        turns = data["turns"]
+        if segment is not None:
+            segments: list[list[dict]] = []
+            current: list[dict] = []
+            for turn in turns:
+                current.append(turn)
+                names = {c.get("name") for c in turn.get("tool_calls", [])}
+                if names.intersection({"propose_plan", "ask_buyer"}):
+                    segments.append(current)
+                    current = []
+            if current:
+                segments.append(current)
+            if segment >= len(segments):
+                raise RuntimeError(
+                    f"Recording {path.name} has {len(segments)} run segment(s); "
+                    f"segment {segment} does not exist."
+                )
+            turns = segments[segment]
+        self._turns = [_turn_from_dict(t) for t in turns]
         self._index = 0
 
     def generate(self, system: str, messages: list[Message], tools: list[dict]) -> Turn:
