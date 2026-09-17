@@ -87,6 +87,25 @@ def _flat_demand(sku: str, node_id: str, units_per_day: int, horizon: int = 28,
     ]
 
 
+def _steady_history(sku: str, node_id: str, units_per_day: int, days: int = 14) -> list[dict]:
+    """Past days where sales matched forecast and stock never ran out.
+
+    Every fixture that plans from a flat forecast needs one. Without it the
+    lookback window is empty, and an empty window reads as *zero sales* rather
+    than *no data* -- the exact trap this system exists to avoid. A live run
+    caught it: the agent stopped to ask why a 35/day forecast had seen no sales
+    in fourteen days, which was a fair question about fixture data rather than
+    about purchasing. F4 is deliberately excluded; its censored and promotional
+    history is the scenario itself.
+    """
+    return [
+        {"sku": sku, "node_id": node_id, "date": day(-offset),
+         "forecast_units": units_per_day, "actual_sales_units": units_per_day,
+         "in_stock_pct": 1.0, "promotion_id": None}
+        for offset in range(days, 0, -1)
+    ]
+
+
 def _supplier(supplier_id: str, name: str, reliability_score: float = 0.95) -> dict:
     return {"supplier_id": supplier_id, "name": name, "reliability_score": reliability_score}
 
@@ -157,7 +176,8 @@ F1 = {
     "products": [_product(_F1_SKU, "Sparkling Water 330ml · 12-pack")],
     "nodes": [_node(_F1_NODE, name="Bogotá North Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F1_SKU, _F1_NODE, on_hand=1200, reserved=150, quarantine=50)],
-    "demand_records": _flat_demand(_F1_SKU, _F1_NODE, units_per_day=100),
+    "demand_records": (_steady_history(_F1_SKU, _F1_NODE, units_per_day=100)
+                       + _flat_demand(_F1_SKU, _F1_NODE, units_per_day=100)),
     "promotions": [],
     "suppliers": [_supplier("SUP-A", "Supplier A", 0.95), _supplier("SUP-B", "Supplier B", 0.9)],
     "supplier_quotes": [
@@ -211,7 +231,8 @@ F2 = {
     "nodes": [_node(_F2_NODE, name="Bogotá Central Fulfillment Center")],
     # on_hand 430 - reserved 50 = usable 380
     "inventory_snapshots": [_inventory(_F2_SKU, _F2_NODE, on_hand=430, reserved=50)],
-    "demand_records": _flat_demand(_F2_SKU, _F2_NODE, units_per_day=35),
+    "demand_records": (_steady_history(_F2_SKU, _F2_NODE, units_per_day=35)
+                       + _flat_demand(_F2_SKU, _F2_NODE, units_per_day=35)),
     "promotions": [],
     "suppliers": [_supplier("SUP-A", "Supplier A", 0.95)],
     "supplier_quotes": [
@@ -251,7 +272,8 @@ F3 = {
     "products": [_product(_F3_SKU, "Frozen Blueberries 500g")],
     "nodes": [_node(_F3_NODE, name="Bogotá Cold-chain Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F3_SKU, _F3_NODE, on_hand=176)],
-    "demand_records": _flat_demand(_F3_SKU, _F3_NODE, units_per_day=17),
+    "demand_records": (_steady_history(_F3_SKU, _F3_NODE, units_per_day=17)
+                       + _flat_demand(_F3_SKU, _F3_NODE, units_per_day=17)),
     "promotions": [],
     "suppliers": [_supplier("SUP-A", "Supplier A", 0.95)],
     "supplier_quotes": [
@@ -364,7 +386,8 @@ F5 = {
     "products": [_product(_F5_SKU, "Baby Diapers Size M · 40-pack")],
     "nodes": [_node(_F5_NODE, name="Bogotá South Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F5_SKU, _F5_NODE, on_hand=1200, reserved=150, quarantine=50)],
-    "demand_records": _flat_demand(_F5_SKU, _F5_NODE, units_per_day=100),
+    "demand_records": (_steady_history(_F5_SKU, _F5_NODE, units_per_day=100)
+                       + _flat_demand(_F5_SKU, _F5_NODE, units_per_day=100)),
     "promotions": [],
     "suppliers": [_supplier("SUP-A", "Supplier A", 0.95), _supplier("SUP-B", "Supplier B", 0.9)],
     "supplier_quotes": [
@@ -416,7 +439,8 @@ F6 = {
     "products": [_product(_F6_SKU, "Basmati Rice 5kg")],
     "nodes": [_node(_F6_NODE, name="Bogotá East Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F6_SKU, _F6_NODE, on_hand=800)],
-    "demand_records": _flat_demand(_F6_SKU, _F6_NODE, units_per_day=50),
+    "demand_records": (_steady_history(_F6_SKU, _F6_NODE, units_per_day=50)
+                       + _flat_demand(_F6_SKU, _F6_NODE, units_per_day=50)),
     "promotions": [],
     "suppliers": [_supplier("SUP-A", "Supplier A", 0.95)],
     "supplier_quotes": [
@@ -438,6 +462,133 @@ F6 = {
         "recommended_600_binding_constraints": ["budget"],
         "disposition": "escalate",
         "action_type": "none",
+    },
+}
+
+
+# --------------------------------------------------------------------------- #
+# F7 -- investigate: a commercial fact no system of record holds
+#
+# The fourth Scenario-1 outcome. Sales flagged a possible one-off bulk order that
+# appears in no forecast, promotion or purchase order. What makes this a question
+# rather than an assumption is that the answer changes the action: covering it is
+# genuinely feasible here (1,800 units still sits inside the 12-day cover
+# ceiling), so "yes" and "no" lead to different orders 500 units and $4,500 apart.
+#
+# An earlier version of this fixture used a bulk order so large that hedging
+# breached the excess-stock ceiling. The agent correctly refused to ask, because
+# no answer could have changed what it did. Asking is only right when the answer
+# has somewhere to go.
+# --------------------------------------------------------------------------- #
+
+_F7_SKU, _F7_NODE = "SKU-1007", "NODE-BOG-F7"
+
+F7 = {
+    "fixture_id": "F7",
+    "products": [_product(_F7_SKU, "Ground Coffee 500g")],
+    "nodes": [_node(_F7_NODE, name="Bogotá Center-North Fulfillment Center")],
+    "inventory_snapshots": [_inventory(_F7_SKU, _F7_NODE, on_hand=600)],
+    # Steady, well-supplied history so the forecast is not in doubt: the single
+    # open question is the bulk order, which appears nowhere in the data.
+    "demand_records": (_steady_history(_F7_SKU, _F7_NODE, units_per_day=60)
+                       + _flat_demand(_F7_SKU, _F7_NODE, units_per_day=60)),
+    "promotions": [],
+    "suppliers": [_supplier("SUP-A", "Supplier A", 0.95)],
+    "supplier_quotes": [
+        _quote("SUP-A", _F7_SKU, unit_price_minor=900, moq=100, pack_size=100,
+               lead_time_days=5, available_units=5000, expires_offset=20),
+    ],
+    "purchase_orders": [],
+    "budgets": [_budget(_F7_NODE, limit_minor=3_000_000)],
+    "capacity_projections": _capacity(_F7_NODE, capacity_m3=400.0, occupied_m3=20.0),
+    "case": _case(
+        "CASE-F7", "F7", _F7_SKU, _F7_NODE, "recommendation",
+        '{"recommended_qty": 1300, "note": "Sales flagged a possible one-off bulk order '
+        'of about 500 units from a corporate customer this month. It is not confirmed, '
+        'and it is not in the forecast."}',
+        "Ground Coffee · unconfirmed bulk order changes the answer", "confirm_full",
+    ),
+    "expected": {
+        "baseline_unmet": 1080,
+        "first_stockout": "2026-09-27",
+        # Raw need is 1280; the supplier's 100-unit pack rounds the order to 1300.
+        "required_quantity": 1280,
+        "recommended_qty": 1300,
+        # Round one: the answer would change the order, so the agent must ask.
+        "expects_buyer_question": True,
+        "buyer_answer": (
+            "The bulk order is not confirmed and may never happen. Do not buy stock for "
+            "it. Cover the normal forecast demand only."
+        ),
+        # Round two, after the answer: forecast-only demand, not the phantom order.
+        "disposition": "accept",
+        "action_type": "create_po",
+        "qty_band": [1200, 1400],
+        # Covering the unconfirmed order is feasible -- which is exactly why the
+        # question is worth asking -- so a proposal at this size means the agent
+        # acted on the bulk order despite being told it is not confirmed.
+        "qty_if_answer_ignored": 1800,
+        "hedge_is_feasible": True,
+        "feasible": True,
+        "after_unmet": 0,
+    },
+}
+
+
+# --------------------------------------------------------------------------- #
+# F8 -- autonomous: small enough that no human is needed
+#
+# Every other fixture costs more than the $2,000 autonomy limit, so all of them
+# stop for approval and the delegated-authority path is never demonstrated. This
+# one is deliberately cheap: $1,650, no residual shortage, no missing evidence.
+# The gate authorises it, the server executes it, and the validator checks it --
+# with nobody clicking anything.
+# --------------------------------------------------------------------------- #
+
+_F8_SKU, _F8_NODE = "SKU-1008", "NODE-BOG-F8"
+
+F8 = {
+    "fixture_id": "F8",
+    "products": [_product(_F8_SKU, "Paper Towels 6-roll")],
+    "nodes": [_node(_F8_NODE, name="Bogotá Airport Fulfillment Center")],
+    "inventory_snapshots": [_inventory(_F8_SKU, _F8_NODE, on_hand=350)],
+    "demand_records": (_steady_history(_F8_SKU, _F8_NODE, units_per_day=25)
+                       + _flat_demand(_F8_SKU, _F8_NODE, units_per_day=25)),
+    "promotions": [],
+    "suppliers": [_supplier("SUP-A", "Supplier A", 0.95)],
+    "supplier_quotes": [
+        _quote("SUP-A", _F8_SKU, unit_price_minor=300, moq=100, pack_size=50,
+               lead_time_days=3, available_units=5000, expires_offset=20),
+    ],
+    # No open order: an unacknowledged or overdue one would be missing evidence,
+    # and the gate refuses to act autonomously on incomplete information.
+    "purchase_orders": [],
+    "budgets": [_budget(_F8_NODE, limit_minor=500_000)],
+    "capacity_projections": _capacity(_F8_NODE, capacity_m3=200.0, occupied_m3=20.0),
+    "case": _case(
+        "CASE-F8", "F8", _F8_SKU, _F8_NODE, "recommendation",
+        '{"recommended_qty": 550, "reason": "Reorder point breach"}',
+        "Paper Towels · low-value replenishment within delegated authority", "confirm_full",
+    ),
+    "expected": {
+        "baseline_unmet": 350,
+        "first_stockout": "2026-10-01",
+        "required_quantity": 550,
+        "recommended_qty": 550,
+        "disposition": "accept",
+        "action_type": "create_po",
+        "qty": 550,
+        "cost_minor": 165_000,
+        "feasible": True,
+        "after_unmet": 0,
+        # Closing 200 against a 12-day cover ceiling of 300 leaves real margin, so
+        # the autonomous outcome does not depend on landing exactly on a limit.
+        "after_closing_inventory": 200,
+        "excess_ceiling_units": 300,
+        "gate_outcome": "autonomous",
+        "approval_required": False,
+        "expected_case_state": "resolved",
+        "expected_verdict": "PASS",
     },
 }
 
@@ -465,5 +616,6 @@ def _as_fixture(raw: dict) -> Fixture:
 
 FIXTURES: dict[str, Fixture] = {
     fid: _as_fixture(raw)
-    for fid, raw in {"F1": F1, "F2": F2, "F3": F3, "F4": F4, "F5": F5, "F6": F6}.items()
+    for fid, raw in {"F1": F1, "F2": F2, "F3": F3, "F4": F4, "F5": F5, "F6": F6,
+                     "F7": F7, "F8": F8}.items()
 }

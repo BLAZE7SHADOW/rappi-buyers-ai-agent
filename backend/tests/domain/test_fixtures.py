@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -26,10 +27,11 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from app.domain.candidates import (
-    PlanningContext, baseline_projection, best, rank, required_quantity, simulate_all,
+    PlanningContext, baseline_projection, best, rank, required_quantity, simulate,
+    simulate_all,
 )
 from app.domain.demand import analyze, promotion_bounded_demand, sustained_demand
-from app.domain.types import ActionType, PolicyConfig
+from app.domain.types import ActionType, Candidate, PolicyConfig
 from fixtures import ANCHOR, FIXTURES
 
 
@@ -331,3 +333,95 @@ def test_f6_escalate(db):
         for r in results
         if r.candidate.action_type in (ActionType.CREATE_PO, ActionType.EXPEDITE_PO)
     )
+
+
+# --------------------------------------------------------------------------- #
+# F7 -- investigate: the engine cannot settle a question the data does not answer
+# --------------------------------------------------------------------------- #
+
+
+def test_f7_engine_covers_forecast_only_and_cannot_see_the_bulk_order(db):
+    """The engine plans for what it can measure; the bulk order is not in the data.
+
+    This is what makes the case an `investigate` rather than a calculation: the
+    quantity the engine recommends is correct *if* the unconfirmed order is
+    ignored, and badly wrong if it is real. Only a human knows which.
+    """
+    fx = FIXTURES["F7"]
+    exp = fx.expected
+    _seed(db, "F7")
+
+    from app.db.engine import transaction
+    with transaction() as conn:
+        ctx = _load_context(conn, fx.sku, fx.node_id)
+
+    before = baseline_projection(ctx)
+    assert before.total_unmet_units == exp["baseline_unmet"]
+    assert before.first_stockout_date.isoformat() == exp["first_stockout"]
+    # Nothing in the demand evidence reflects the flagged order: the engine sizes
+    # the order from the forecast alone.
+    assert required_quantity(ctx) == exp["required_quantity"]
+    assert exp["required_quantity"] < exp["qty_if_answer_ignored"]
+
+    results = simulate_all(ctx, recommended_qty=exp["recommended_qty"])
+    top = best(results)
+    assert top is not None
+    lo, hi = exp["qty_band"]
+    assert lo <= top.candidate.qty <= hi
+    assert top.after.total_unmet_units == exp["after_unmet"]
+
+    # What makes this a question rather than an assumption: covering the
+    # unconfirmed order is genuinely available, so the answer has somewhere to go.
+    # If hedging were infeasible, declining to ask would be the correct behaviour.
+    hedged = simulate(ctx, Candidate(
+        action_type=ActionType.CREATE_PO, supplier_id="SUP-A",
+        qty=exp["qty_if_answer_ignored"], unit_price_minor=900,
+        expected_receipt_date=ctx.today + timedelta(days=5),
+    ))
+    assert hedged.feasible is exp["hedge_is_feasible"]
+    assert hedged.binding_constraints == []
+    # ...and the two answers lead to materially different orders.
+    assert exp["qty_if_answer_ignored"] - exp["qty_band"][1] >= 400
+
+
+# --------------------------------------------------------------------------- #
+# F8 -- autonomous: cheap enough that the gate needs no human
+# --------------------------------------------------------------------------- #
+
+
+def test_f8_is_authorised_by_the_gate_without_a_buyer(db):
+    fx = FIXTURES["F8"]
+    exp = fx.expected
+    _seed(db, "F8")
+
+    from app.db.engine import transaction
+    from app.services import gate as gate_mod
+    from app.services.context import missing_evidence
+
+    with transaction() as conn:
+        ctx = _load_context(conn, fx.sku, fx.node_id)
+
+    before = baseline_projection(ctx)
+    assert before.total_unmet_units == exp["baseline_unmet"]
+    assert before.first_stockout_date.isoformat() == exp["first_stockout"]
+    assert required_quantity(ctx) == exp["required_quantity"] == exp["recommended_qty"]
+
+    results = simulate_all(ctx, recommended_qty=exp["recommended_qty"])
+    top = best(results)
+    assert top is not None
+    assert top.candidate.action_type == ActionType.CREATE_PO
+    assert top.candidate.qty == exp["qty"]
+    assert top.incremental_cost_minor == exp["cost_minor"]
+    assert top.after.total_unmet_units == exp["after_unmet"]
+
+    # Autonomy must not depend on landing exactly on a limit.
+    assert top.after.closing_inventory == exp["after_closing_inventory"]
+    assert exp["after_closing_inventory"] < exp["excess_ceiling_units"]
+    assert top.candidate.total_cost_minor < ctx.policy.autonomy_spend_limit_minor
+
+    # Every gate condition, checked together rather than assumed.
+    assert missing_evidence(ctx) == []
+    decision = gate_mod.evaluate(top, missing_evidence=missing_evidence(ctx))
+    assert decision.outcome.value == exp["gate_outcome"]
+    assert decision.approval_required is exp["approval_required"]
+    assert decision.triggers == []
