@@ -1,0 +1,98 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.6-flash",
+  "turns": [
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_case_context",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_inventory",
+          "args": {}
+        },
+        {
+          "name": "get_demand_evidence",
+          "args": {}
+        },
+        {
+          "name": "get_open_orders",
+          "args": {}
+        },
+        {
+          "name": "get_supplier_options",
+          "args": {}
+        },
+        {
+          "name": "get_constraints",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "supplier_id": "SUP-A",
+            "action_type": "create_po",
+            "expected_receipt_date": "2026-09-24",
+            "qty": 500
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "assumptions": [
+              "Forecast demand of 17 units/day over the 28-day planning horizon is used for planning."
+            ],
+            "evidence_refs": [
+              "simulate_plan",
+              "get_case_context",
+              "get_inventory",
+              "get_demand_evidence",
+              "get_constraints",
+              "get_supplier_options"
+            ],
+            "action_type": "create_po",
+            "rationale": "The trigger recommended ordering 800 units of SKU-1003. Simulation shows that ordering 800 units is infeasible as it violates physical storage capacity (peak occupancy 204.00 m\u00b3 exceeds node capacity of 200.00 m\u00b3) and exceeds the 12-day max cover policy limit (29.4 days of cover). Baseline projection without a purchase shows 300 units of unmet demand starting on 2026-09-27. Ordering 500 units from SUP-A at $13.00/unit ($6,500.00 total) arriving 2026-09-24 completely resolves the 300 units of unmet demand, respects physical storage capacity (peak occupancy 198.00 m\u00b3), and complies with the 12-day max cover policy (ending with 200 units / 11.8 days of cover).",
+            "important_factors": [
+              "Recommended 800 units violates storage capacity (peak occupancy 204 m\u00b3 vs 200 m\u00b3 limit) and max days of cover policy (29.4 days vs 12 days limit).",
+              "500 units completely eliminates all 300 units of unmet demand across the 28-day planning horizon.",
+              "500 units stays within physical node capacity (peak occupancy 198 m\u00b3) and max days cover policy (11.8 days cover / 200 closing units).",
+              "Receipt on 2026-09-24 arrives before the baseline stockout date of 2026-09-27."
+            ],
+            "action_args": {
+              "expected_receipt_date": "2026-09-24",
+              "supplier_id": "SUP-A",
+              "qty": 500
+            },
+            "disposition": "modify"
+          }
+        }
+      ]
+    }
+  ]
+}

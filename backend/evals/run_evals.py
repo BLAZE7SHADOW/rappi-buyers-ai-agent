@@ -207,7 +207,10 @@ def q4_appropriate_action(fixture_id: str, expected: dict, st: dict) -> Check:
 
     # Action count catches duplicates, which a type check alone would miss.
     completed = [a for a in st["actions"] if a["state"] == "completed"]
-    if want in (None, "none", "keep_plan") and completed:
+    # Only assert inaction when the fixture explicitly expects it. A fixture that
+    # simply does not pin an action type (F4 judges quantity, not action) must not
+    # be read as expecting nothing to happen.
+    if want in ("none", "keep_plan") and completed:
         return Check(q, False, f"Expected no purchasing action, but {len(completed)} ran.")
     if len(completed) > 1:
         return Check(q, False, f"{len(completed)} actions executed where one was expected.")
@@ -371,7 +374,30 @@ def render_report(results: list[Result], started: datetime) -> str:
         for i, q in enumerate(questions):
             lines.append(f"- **Q{i+1}** — {q}")
 
-    lines += ["", "## Detail", ""]
+    lines += [
+        "", "## Observations", "",
+        "**Investigation paths are similar across fixtures.** The agent gathers all six "
+        "evidence tools in roughly the same order every time rather than branching on "
+        "what it finds. With a small, cheap evidence surface that is defensible -- there "
+        "is little cost to reading everything -- but it means adaptivity shows up in the "
+        "simulate-and-decide phase rather than in evidence gathering. Fixtures needing a "
+        "specific comparison (F3, F4, F5, F6) issue a second targeted `simulate_plan` "
+        "after the broad one; fixtures where the first answer is clear do not. "
+        "Demonstrating branching during evidence gathering would need a larger or more "
+        "expensive tool surface than this domain currently has.",
+        "",
+        "**The decisions do differ, which is the part that matters.** The same tool "
+        "sweep produces reject-and-expedite, accept, modify-down, promotion-bounded "
+        "buying, and escalate across the six fixtures.",
+        "",
+        "**Typed tool errors are recovered from.** In F6 the first `propose_plan` call "
+        "omitted `disposition`; the tool returned `MISSING_FIELD` and the agent corrected "
+        "the call on its next turn rather than failing the run.",
+        "",
+        "**Recorded runs are one sample.** Model behaviour varies between runs. The "
+        "recordings in `recordings/` are the specific runs these results describe; "
+        "re-recording with `--live --record` may take a different path.",
+        "", "## Detail", ""]
     for r in results:
         lines.append(f"### {r.fixture_id} — {FIXTURES[r.fixture_id].case.get('title', '')}")
         lines.append("")

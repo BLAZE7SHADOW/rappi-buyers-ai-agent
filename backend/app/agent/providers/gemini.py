@@ -37,6 +37,13 @@ def _to_contents(messages: list[Message]) -> list[types.Content]:
                 )
             ]))
         elif m.role == "model":
+            # Replay the provider's own content object when we have it. Gemini
+            # requires the thought_signature attached to each function-call part
+            # to come back unchanged; reconstructing the part drops it and the
+            # API rejects the request.
+            if m.raw is not None:
+                contents.append(m.raw)
+                continue
             parts: list[types.Part] = []
             if m.text:
                 parts.append(types.Part.from_text(text=m.text))
@@ -80,4 +87,5 @@ class GeminiProvider(Provider):
                 elif getattr(part, "text", None):
                     text_parts.append(part.text)
 
-        return Turn(text="\n".join(text_parts).strip(), tool_calls=calls)
+        raw_content = candidates[0].content if candidates else None
+        return Turn(text="\n".join(text_parts).strip(), tool_calls=calls, raw=raw_content)

@@ -1,0 +1,104 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.6-flash",
+  "turns": [
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_case_context",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_inventory",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_demand_evidence",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_open_orders",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_supplier_options",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_constraints",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_demand_evidence",
+              "get_open_orders",
+              "get_supplier_options",
+              "get_constraints",
+              "simulate_plan"
+            ],
+            "disposition": "reject",
+            "assumptions": [
+              "Forecast of 100 units/day remains accurate over the 28-day horizon."
+            ],
+            "action_type": "expedite_po",
+            "action_args": {
+              "new_date": "2026-09-27",
+              "po_id": "PO-501"
+            },
+            "rationale": "The recommendation to purchase 800 units is rejected. Ordering 800 units exceeds the available budget limit of $10,000 ($12,000 at SUP-A or $14,000 at SUP-B) and is unnecessary because the deficit is a timing issue, not a total volume issue. Usable inventory is 1,000 units and daily forecast is 100 units, leading to a 400-unit shortfall between 2026-09-27 and 2026-09-30. Confirmed order PO-501 (2,000 units) is scheduled to arrive on 2026-10-01. Expediting PO-501 by 4 days to arrive on 2026-09-27 costs $450.00 and completely resolves all 400 units of unmet demand while staying within storage capacity (60 m\u00b3 vs 200 m\u00b3 limit) and total budget ($10,000).",
+            "important_factors": [
+              "Existing open order PO-501 for 2000 units is confirmed for delivery on 2026-10-01.",
+              "Baseline projection shows stockout of 400 units between 2026-09-27 and 2026-09-30.",
+              "Expediting PO-501 by 4 days to 2026-09-27 fully eliminates the 400 units unmet demand at a fee of $450.00.",
+              "Recommending an 800-unit PO is infeasible due to breaching the $10,000 budget constraint ($12,000 at SUP-A / $14,000 at SUP-B) and creates unnecessary inventory."
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

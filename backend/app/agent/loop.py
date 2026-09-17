@@ -135,7 +135,8 @@ def run_case(
                 outcome = "stopped_without_proposal"
                 break
 
-            messages.append(Message(role="model", text=turn.text, tool_calls=turn.tool_calls))
+            messages.append(Message(role="model", text=turn.text, tool_calls=turn.tool_calls,
+                                    raw=turn.raw))
 
             terminal_hit = False
             for call in turn.tool_calls:

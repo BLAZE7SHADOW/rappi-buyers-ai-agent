@@ -1,78 +1,264 @@
 {
-  "generated": "2026-09-17T15:40:39.925837",
+  "generated": "2026-09-17T15:56:16.214377",
   "live": false,
   "results": [
     {
       "fixture_id": "F1",
       "case_id": "CASE-F1",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 8,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Disposition 'reject' matches expectation."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'expedite_po'; 1 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "Every executed action carries a verdict: PARTIAL."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "Verdict ['PARTIAL'] and the case moved to 'reopened' (replans: 1)."
+        }
+      ]
     },
     {
       "fixture_id": "F2",
       "case_id": "CASE-F2",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 8,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Disposition 'accept' matches expectation."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including simulate_plan."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'create_po'; 1 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "Action succeeded; case state 'resolved'."
+        }
+      ]
     },
     {
       "fixture_id": "F3",
       "case_id": "CASE-F3",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 9,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Disposition 'modify', quantity 500 within [450, 600]."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'create_po'; 1 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "Action succeeded; case state 'resolved'."
+        }
+      ]
     },
     {
       "fixture_id": "F4",
       "case_id": "CASE-F4",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 9,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Proposed 600 units; naive extrapolation would imply roughly 3640 units of demand. Bounded the uplift."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including get_demand_evidence."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'create_po'; 1 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "Action succeeded; case state 'resolved'."
+        }
+      ]
     },
     {
       "fixture_id": "F5",
       "case_id": "CASE-F5",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 9,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Disposition 'reject' matches expectation."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'expedite_po'; 1 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "Every executed action carries a verdict: PASS."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "After the timeout and recovery, 1 purchase order(s) exist (expected 1). No duplicate created."
+        }
+      ]
     },
     {
       "fixture_id": "F6",
       "case_id": "CASE-F6",
       "mode": "replay",
-      "provider": "",
-      "model": "",
-      "outcome": "",
-      "tool_calls": 0,
-      "passed": false,
-      "error": "No recording. Run with --live --record first, or use --live to call the model directly.",
-      "checks": []
+      "provider": "replay:gemini",
+      "model": "gemini-3.6-flash",
+      "outcome": "proposed",
+      "tool_calls": 10,
+      "passed": true,
+      "error": "",
+      "checks": [
+        {
+          "question": "Was the decision correct?",
+          "passed": true,
+          "detail": "Disposition 'escalate' matches expectation."
+        },
+        {
+          "question": "Did the agent obtain the necessary information?",
+          "passed": true,
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan."
+        },
+        {
+          "question": "Did it respect relevant constraints?",
+          "passed": true,
+          "detail": "No executed action breached budget, capacity, MOQ or quote validity."
+        },
+        {
+          "question": "Did it take the appropriate action?",
+          "passed": true,
+          "detail": "Action 'none'; 0 execution(s) recorded."
+        },
+        {
+          "question": "Did it validate the result?",
+          "passed": true,
+          "detail": "No action executed, so no outcome required validation."
+        },
+        {
+          "question": "What happens when the initial action does not work?",
+          "passed": true,
+          "detail": "Action succeeded; case state 'authorized'."
+        }
+      ]
     }
   ]
 }

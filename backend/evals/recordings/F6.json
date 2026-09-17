@@ -1,0 +1,116 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.6-flash",
+  "turns": [
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_case_context",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_inventory",
+          "args": {}
+        },
+        {
+          "name": "get_open_orders",
+          "args": {}
+        },
+        {
+          "name": "get_demand_evidence",
+          "args": {}
+        },
+        {
+          "name": "get_supplier_options",
+          "args": {}
+        },
+        {
+          "name": "get_constraints",
+          "args": {}
+        },
+        {
+          "name": "simulate_plan",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "action_type": "create_po",
+            "expected_receipt_date": "2026-09-24",
+            "supplier_id": "SUP-A",
+            "qty": 100
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_open_orders",
+              "get_demand_evidence",
+              "get_supplier_options",
+              "get_constraints",
+              "simulate_plan"
+            ],
+            "rationale": "The purchasing recommendation suggests buying 600 units from SUP-A. Currently, there are 800 usable units on hand and 0 open orders. With a projected horizon demand of 1,400 units (50 units/day), stockouts begin on 2026-10-03, resulting in 600 units of unmet demand. To fully meet demand and restore safety stock to 200 units, 800 units are required ($8,000.00), while ordering 600 units ($6,000.00) would meet demand but leave closing inventory at 0. However, available budget is $0.00, which is a hard constraint that cannot be bypassed via buyer autonomy limits. Because all purchasing options are infeasible due to zero available budget, and keeping the plan accepts 600 units of unserved demand, human intervention is required to allocate additional budget (at least $6,000.00, or $8,000.00 for full safety stock coverage).",
+            "important_factors": [
+              "Baseline stockout of 600 units starting on 2026-10-03 due to 800 usable on-hand stock vs 1400 units forecast demand over 28 days.",
+              "Available budget is $0.00, which acts as a hard constraint blocking all purchase order options.",
+              "Recommended PO quantity of 600 units costs $6,000.00; full replenishment to restore 200 units safety stock requires 800 units ($8,000.00)."
+            ],
+            "assumptions": [
+              "Forecasted demand of 50 units/day will materialise over the horizon despite observed recent sales being 0 units/day."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "assumptions": [
+              "Forecasted demand of 50 units/day will materialise over the horizon despite observed recent sales being 0 units/day."
+            ],
+            "important_factors": [
+              "Baseline stockout of 600 units starting on 2026-10-03 due to 800 usable on-hand stock vs 1400 units forecast demand over 28 days.",
+              "Available budget is $0.00, which acts as a hard constraint blocking all purchase order options.",
+              "Recommended PO quantity of 600 units costs $6,000.00; full replenishment to restore 200 units safety stock requires 800 units ($8,000.00)."
+            ],
+            "action_type": "none",
+            "rationale": "The purchasing recommendation suggests buying 600 units from SUP-A. Currently, there are 800 usable units on hand and 0 open orders. With a projected horizon demand of 1,400 units (50 units/day), stockouts begin on 2026-10-03, resulting in 600 units of unmet demand. To fully meet demand and restore safety stock to 200 units, 800 units are required ($8,000.00), while ordering 600 units ($6,000.00) would meet demand but leave closing inventory at 0. However, available budget is $0.00, which is a hard constraint that cannot be bypassed via buyer autonomy limits. Because all purchasing options are infeasible due to zero available budget, and keeping the plan accepts 600 units of unserved demand, human intervention is required to allocate additional budget (at least $6,000.00, or $8,000.00 for full safety stock coverage).",
+            "disposition": "escalate",
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_open_orders",
+              "get_demand_evidence",
+              "get_supplier_options",
+              "get_constraints",
+              "simulate_plan"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

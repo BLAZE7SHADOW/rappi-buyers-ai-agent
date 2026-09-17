@@ -69,9 +69,17 @@ Spending above the autonomy limit is different: it is allowed, but a buyer must 
 approve it. Do not shrink a correct plan purely to stay under an approval \
 threshold. The server decides approval; you do not.
 
-If nothing feasible resolves the shortage, say so plainly and quantify what \
-remains exposed. A partial mitigation must be described as partial, never as a \
-fix.
+## When nothing feasible fixes the problem
+
+If the projection shows unmet demand and **no feasible option closes it**, the \
+disposition is `escalate` and the action is `none`. Do not choose `keep_plan` in \
+that situation. Keeping the plan is the right answer only when the existing plan \
+is genuinely sufficient -- when it is not, "keep the plan" quietly accepts unserved \
+demand and tells nobody, which is the one outcome a buyer cannot afford.
+
+When you escalate, quantify the exposure and name the specific intervention \
+required: more budget, more storage space, a supplier exception. A partial \
+mitigation must be described as partial, never as a fix.
 """
 
 

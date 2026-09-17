@@ -1,0 +1,98 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.6-flash",
+  "turns": [
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_case_context",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_inventory",
+          "args": {}
+        },
+        {
+          "name": "get_demand_evidence",
+          "args": {}
+        },
+        {
+          "name": "get_open_orders",
+          "args": {}
+        },
+        {
+          "name": "get_supplier_options",
+          "args": {}
+        },
+        {
+          "name": "get_constraints",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "qty": 600,
+            "expected_receipt_date": "2026-09-24",
+            "supplier_id": "SUP-A",
+            "action_type": "create_po"
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "action_type": "create_po",
+            "rationale": "Investigation of the demand spike trigger reveals that recent daily sales averaging 130 units/day (excluding 3 stockout-censored days on 2026-09-06, 2026-09-07, and 2026-09-08) are driven by active promotion PROMO-1, which ends on 2026-09-23. Extrapolating the promotional sales rate across the full 28-day horizon (ordering 3550 units) is infeasible due to breaching the maximum days of cover policy (63.0 days vs 12-day limit).\n\nUnder baseline forecast (50 units/day, total 1400 units demand), the current usable stock of 1000 units leads to a stockout on 2026-10-07 with 400 total unmet units and 12 days below safety stock.\n\nSimulating an order of 600 units from SUP-A at $14.00 per unit arriving on 2026-09-24 (7-day lead time) fully eliminates unmet demand (0 residual unmet units) and leaves closing inventory at 200 units (4.0 days of cover, within the 12-day policy limit). The order satisfies MOQ (300) and pack size (50), fits within storage capacity (peak occupancy 45.00 m\u00b3 vs 200.00 m\u00b3 limit), and remains well within available budget ($8,400.00 vs $50,000.00 available). Because the spend ($8,400.00) exceeds the autonomy limit of $2,000.00, buyer approval is required.",
+            "important_factors": [
+              "Recent sales of 130 units/day are driven by active promotion PROMO-1 ending 2026-09-23 and should not be extrapolated across the entire horizon.",
+              "Baseline projection without order results in a stockout on 2026-10-07 with 400 total unmet units.",
+              "Ordering 600 units from SUP-A closes the 400 unmet unit shortage and leaves 200 units in safety stock.",
+              "Order cost of $8,400.00 exceeds buyer autonomy spend limit of $2,000.00, requiring buyer approval."
+            ],
+            "disposition": "modify",
+            "assumptions": [
+              "Demand returns to the baseline forecast of 50 units/day after promotion PROMO-1 ends on 2026-09-23."
+            ],
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_demand_evidence",
+              "get_supplier_options",
+              "get_constraints",
+              "simulate_plan"
+            ],
+            "action_args": {
+              "qty": 600,
+              "expected_receipt_date": "2026-09-24",
+              "supplier_id": "SUP-A"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
