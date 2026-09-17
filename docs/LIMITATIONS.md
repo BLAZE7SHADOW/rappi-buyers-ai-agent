@@ -30,6 +30,19 @@ written down is a different thing from one that is not.
 - **Storage capacity is a single volume number per node per day.** No racking types,
   temperature zones or dock scheduling.
 
+## Validation
+
+- **Validation is independent of the agent, not of the world model.** The
+  execution-layer checks (quantity, date, cost) compare against facts the supplier
+  reported and are genuinely independent. The business-layer check re-derives the
+  projection with the *same engine* the plan used, so an error in that engine would
+  make the plan and its validation wrong in the same direction. This is why the
+  engine carries its own unit tests rather than being trusted because validation
+  agrees with it. A stronger design would validate against observed receipts.
+- **Cost tolerance is a flat $1.00.** No percentage band, no per-supplier terms.
+- **The replan budget is 2.** A supplier that short-ships every order indefinitely
+  escalates after two attempts rather than looping.
+
 ## Agent behaviour
 
 - **Investigation paths are similar across fixtures.** The agent sweeps all six

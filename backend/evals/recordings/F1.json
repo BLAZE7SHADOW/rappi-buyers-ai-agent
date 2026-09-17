@@ -69,8 +69,23 @@
       "text": "",
       "tool_calls": [
         {
+          "name": "simulate_plan",
+          "args": {
+            "new_date": "2026-09-27",
+            "po_id": "PO-501",
+            "action_type": "expedite_po"
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
           "name": "propose_plan",
           "args": {
+            "action_type": "expedite_po",
+            "rationale": "The recommendation to purchase 800 units should be rejected. Placing a new order for 800 units would cost $12,000.00 with SUP-A or $14,000.00 with SUP-B, both of which exceed the available budget limit of $10,000.00 and are infeasible.\n\nAnalysis shows current usable inventory is 1,000 units against a daily forecast of 100 units/day. Without intervention, inventory runs out on 2026-09-27, resulting in 400 units of unmet demand across 4 days (2026-09-27 to 2026-09-30). Confirmed purchase order PO-501 (2,000 units) is scheduled to arrive on 2026-10-01.\n\nExpedite options from supplier SUP-A allow PO-501 to be brought forward by 4 days to arrive on 2026-09-27 for an expedite fee of $450.00. Simulation confirms that expediting PO-501 to 2026-09-27 eliminates 100% of the projected unmet demand (0 residual unmet units) at an incremental cost of $450.00, while staying fully within the $10,000.00 budget and 200 m\u00b3 warehouse capacity limits.\n\nNote: The $450.00 expedite fee exceeds the buyer autonomy limit of $250.00, so this action will require buyer approval, but it represents the most cost-effective and feasible solution.",
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
@@ -80,22 +95,131 @@
               "get_constraints",
               "simulate_plan"
             ],
-            "disposition": "reject",
-            "assumptions": [
-              "Forecast of 100 units/day remains accurate over the 28-day horizon."
+            "important_factors": [
+              "The purchasing system recommendation to buy 800 units ($12,000 with SUP-A or $14,000 with SUP-B) exceeds the available budget limit of $10,000.00 and is infeasible.",
+              "Current usable stock is 1,000 units. With a forecast of 100 units/day, stockout occurs on 2026-09-27, creating a 4-day shortage gap of 400 units prior to PO-501's original arrival date of 2026-10-01.",
+              "Existing open order PO-501 (2,000 units with SUP-A) can be expedited by 4 days to 2026-09-27 for an expedite fee of $450.00.",
+              "Expedite action eliminates all 400 units of projected unmet demand at a total cost of $450.00, well within the $10,000.00 budget and capacity limits."
             ],
-            "action_type": "expedite_po",
+            "disposition": "reject",
+            "assumptions": [],
             "action_args": {
               "new_date": "2026-09-27",
               "po_id": "PO-501"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_case_context",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_inventory",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_open_orders",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_supplier_options",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_demand_evidence",
+          "args": {
+            "lookback_days": 14
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "get_constraints",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "qty": 600,
+            "expected_receipt_date": "2026-09-24",
+            "action_type": "create_po",
+            "supplier_id": "SUP-A"
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "propose_plan",
+          "args": {
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_open_orders",
+              "get_supplier_options",
+              "get_constraints",
+              "simulate_plan"
+            ],
+            "action_args": {
+              "expected_receipt_date": "2026-09-24",
+              "qty": 600,
+              "supplier_id": "SUP-A"
             },
-            "rationale": "The recommendation to purchase 800 units is rejected. Ordering 800 units exceeds the available budget limit of $10,000 ($12,000 at SUP-A or $14,000 at SUP-B) and is unnecessary because the deficit is a timing issue, not a total volume issue. Usable inventory is 1,000 units and daily forecast is 100 units, leading to a 400-unit shortfall between 2026-09-27 and 2026-09-30. Confirmed order PO-501 (2,000 units) is scheduled to arrive on 2026-10-01. Expediting PO-501 by 4 days to arrive on 2026-09-27 costs $450.00 and completely resolves all 400 units of unmet demand while staying within storage capacity (60 m\u00b3 vs 200 m\u00b3 limit) and total budget ($10,000).",
+            "action_type": "create_po",
+            "disposition": "modify",
             "important_factors": [
-              "Existing open order PO-501 for 2000 units is confirmed for delivery on 2026-10-01.",
-              "Baseline projection shows stockout of 400 units between 2026-09-27 and 2026-09-30.",
-              "Expediting PO-501 by 4 days to 2026-09-27 fully eliminates the 400 units unmet demand at a fee of $450.00.",
-              "Recommending an 800-unit PO is infeasible due to breaching the $10,000 budget constraint ($12,000 at SUP-A / $14,000 at SUP-B) and creates unnecessary inventory."
-            ]
+              "PO-501 partial confirmation yielded 1200 units instead of 2000 units (800 cancelled), leaving 600 units of unmet demand between 2026-10-09 and 2026-10-14.",
+              "The system recommended ordering 800 units, but at $15.00/unit this costs $12,000.00, which breaches the available budget limit of $9,550.00.",
+              "Ordering 600 units from SUP-A costs $9,000.00, which is within available budget ($9,550.00) and completely resolves all 600 units of unmet demand."
+            ],
+            "assumptions": [
+              "SUP-A can deliver 600 units by 2026-09-24 as per quote lead time of 7 days."
+            ],
+            "rationale": "The prior expedite of PO-501 resulted in partial confirmation of 1,200 units and 800 cancelled units, creating a projected shortage of 600 units between 2026-10-09 and 2026-10-14. The system recommendation to order 800 units is infeasible as its total cost ($12,000.00 at SUP-A's unit price of $15.00) exceeds the available budget limit of $9,550.00 by $2,450.00. Modifying the order quantity to 600 units from SUP-A at $15.00 per unit requires $9,000.00, staying within the available budget of $9,550.00. Arriving on 2026-09-24 (7 days lead time), this order completely eliminates the 600 units of unmet demand over the planning horizon."
           }
         }
       ]

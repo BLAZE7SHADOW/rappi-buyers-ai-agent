@@ -17,19 +17,30 @@
         {
           "name": "get_inventory",
           "args": {}
-        },
-        {
-          "name": "get_demand_evidence",
-          "args": {}
-        },
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_open_orders",
           "args": {}
-        },
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_supplier_options",
           "args": {}
-        },
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_constraints",
           "args": {}
@@ -40,6 +51,15 @@
       "text": "",
       "tool_calls": [
         {
+          "name": "get_demand_evidence",
+          "args": {}
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
           "name": "simulate_plan",
           "args": {}
         }
@@ -51,10 +71,10 @@
         {
           "name": "simulate_plan",
           "args": {
-            "supplier_id": "SUP-A",
             "action_type": "create_po",
-            "expected_receipt_date": "2026-09-24",
-            "qty": 500
+            "supplier_id": "SUP-A",
+            "qty": 500,
+            "expected_receipt_date": "2026-09-24"
           }
         }
       ]
@@ -65,31 +85,30 @@
         {
           "name": "propose_plan",
           "args": {
-            "assumptions": [
-              "Forecast demand of 17 units/day over the 28-day planning horizon is used for planning."
-            ],
-            "evidence_refs": [
-              "simulate_plan",
-              "get_case_context",
-              "get_inventory",
-              "get_demand_evidence",
-              "get_constraints",
-              "get_supplier_options"
+            "important_factors": [
+              "Storage capacity limit of 200.00 m\u00b3 (max 656 units)",
+              "Policy limit of maximum 12 days cover (max 204 units closing inventory)",
+              "Projected baseline stockout on 2026-09-27 with 300 units of unmet demand",
+              "Supplier SUP-A lead time of 7 days (arrival on 2026-09-24) at $13.00 per unit"
             ],
             "action_type": "create_po",
-            "rationale": "The trigger recommended ordering 800 units of SKU-1003. Simulation shows that ordering 800 units is infeasible as it violates physical storage capacity (peak occupancy 204.00 m\u00b3 exceeds node capacity of 200.00 m\u00b3) and exceeds the 12-day max cover policy limit (29.4 days of cover). Baseline projection without a purchase shows 300 units of unmet demand starting on 2026-09-27. Ordering 500 units from SUP-A at $13.00/unit ($6,500.00 total) arriving 2026-09-24 completely resolves the 300 units of unmet demand, respects physical storage capacity (peak occupancy 198.00 m\u00b3), and complies with the 12-day max cover policy (ending with 200 units / 11.8 days of cover).",
-            "important_factors": [
-              "Recommended 800 units violates storage capacity (peak occupancy 204 m\u00b3 vs 200 m\u00b3 limit) and max days of cover policy (29.4 days vs 12 days limit).",
-              "500 units completely eliminates all 300 units of unmet demand across the 28-day planning horizon.",
-              "500 units stays within physical node capacity (peak occupancy 198 m\u00b3) and max days cover policy (11.8 days cover / 200 closing units).",
-              "Receipt on 2026-09-24 arrives before the baseline stockout date of 2026-09-27."
+            "assumptions": [
+              "Demand will materialize according to the forecast of 17 units/day over the 28-day planning horizon."
+            ],
+            "disposition": "modify",
+            "rationale": "The recommendation to buy 800 units must be modified to 500 units. Ordering 800 units is infeasible because peak occupancy would reach 204.00 m\u00b3, breaching the node storage capacity limit of 200.00 m\u00b3, and closing inventory would be 500 units (29.4 days of cover), violating the 12-day max cover policy (204 units limit).\n\nUsable stock is currently 176 units. Based on a forecast of 17 units/day over 28 days (476 units total), a stockout occurs on 2026-09-27, resulting in 300 units of unmet demand. Ordering 500 units from SUP-A at $13.00/unit ($6,500.00 total) arriving on 2026-09-24 completely eliminates the 300 units of unmet demand, respects storage capacity (peak occupancy of 198.00 m\u00b3 <= 200.00 m\u00b3), and satisfies policy limits (closing inventory of 200 units = 11.8 days of cover <= 12 days).",
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_constraints",
+              "get_supplier_options",
+              "simulate_plan"
             ],
             "action_args": {
-              "expected_receipt_date": "2026-09-24",
+              "qty": 500,
               "supplier_id": "SUP-A",
-              "qty": 500
-            },
-            "disposition": "modify"
+              "expected_receipt_date": "2026-09-24"
+            }
           }
         }
       ]

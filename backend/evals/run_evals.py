@@ -69,6 +69,9 @@ class Check:
     question: str
     passed: bool
     detail: str
+    # A question the fixture never exercises is not a pass. Scoring it as one
+    # inflates the result; it is reported as N/A and excluded from the total.
+    applicable: bool = True
 
 
 @dataclass
@@ -80,19 +83,22 @@ class Result:
     model: str = ""
     outcome: str = ""
     tool_calls: int = 0
+    replanned: bool = False
     checks: list[Check] = field(default_factory=list)
     error: str = ""
 
     @property
     def passed(self) -> bool:
-        return not self.error and all(c.passed for c in self.checks)
+        return not self.error and all(c.passed for c in self.checks if c.applicable)
 
     def to_dict(self) -> dict:
         return {
             "fixture_id": self.fixture_id, "case_id": self.case_id, "mode": self.mode,
             "provider": self.provider, "model": self.model, "outcome": self.outcome,
-            "tool_calls": self.tool_calls, "passed": self.passed, "error": self.error,
-            "checks": [{"question": c.question, "passed": c.passed, "detail": c.detail}
+            "tool_calls": self.tool_calls, "replanned": self.replanned,
+            "passed": self.passed, "error": self.error,
+            "checks": [{"question": c.question, "passed": c.passed,
+                        "applicable": c.applicable, "detail": c.detail}
                        for c in self.checks],
         }
 
@@ -100,6 +106,17 @@ class Result:
 # --------------------------------------------------------------------------- #
 # Inspection helpers
 # --------------------------------------------------------------------------- #
+
+
+def _set_supplier_behavior(case_id: str, behavior: str) -> None:
+    with transaction() as conn:
+        conn.execute(s.cases.update().where(s.cases.c.case_id == case_id)
+                     .values(supplier_behavior=behavior))
+
+
+def _case_state(case_id: str) -> str:
+    with transaction() as conn:
+        return load_case(conn, case_id)["state"]
 
 
 def _state(case_id: str) -> dict:
@@ -135,7 +152,11 @@ def q1_decision_correct(fixture_id: str, expected: dict, st: dict) -> Check:
     q = "Was the decision correct?"
     if not st["proposals"]:
         return Check(q, False, "No proposal was recorded.")
-    p = st["proposals"][-1]
+    # The fixture's expectation describes the decision on the incoming
+    # recommendation, so it is judged against the FIRST proposal. A later
+    # proposal from a replan is a different decision about a changed world, and
+    # is judged by Q6 instead.
+    p = st["proposals"][0]
     want = expected.get("disposition")
 
     if fixture_id == "F4":
@@ -200,7 +221,7 @@ def q4_appropriate_action(fixture_id: str, expected: dict, st: dict) -> Check:
     q = "Did it take the appropriate action?"
     if not st["proposals"]:
         return Check(q, False, "No proposal, so no action.")
-    p = st["proposals"][-1]
+    p = st["proposals"][0]          # the action for the original decision
     want = expected.get("action_type")
     if want and p["action_type"] != want:
         return Check(q, False, f"Expected action '{want}', got '{p['action_type']}'.")
@@ -212,10 +233,15 @@ def q4_appropriate_action(fixture_id: str, expected: dict, st: dict) -> Check:
     # be read as expecting nothing to happen.
     if want in ("none", "keep_plan") and completed:
         return Check(q, False, f"Expected no purchasing action, but {len(completed)} ran.")
-    if len(completed) > 1:
-        return Check(q, False, f"{len(completed)} actions executed where one was expected.")
+    # One execution per proposal. More than that means a duplicate, which is the
+    # failure this count exists to catch.
+    if len(completed) > len(st["proposals"]):
+        return Check(q, False,
+                     f"{len(completed)} actions executed across {len(st['proposals'])} "
+                     f"proposal(s) -- an action ran more than once.")
     return Check(q, True,
-                 f"Action '{p['action_type']}'; {len(completed)} execution(s) recorded.")
+                 f"Action '{p['action_type']}'; {len(completed)} execution(s) across "
+                 f"{len(st['proposals'])} proposal(s), no duplicates.")
 
 
 def q5_validated_result(fixture_id: str, expected: dict, st: dict) -> Check:
@@ -251,15 +277,41 @@ def q6_handles_failure(fixture_id: str, expected: dict, st: dict) -> Check:
     partials = [json.loads(a["verdict_json"])["verdict"] for a in st["actions"]
                 if a["verdict_json"]]
     if any(v in ("PARTIAL", "FAIL") for v in partials):
-        reopened = case["replan_count"] > 0 or case["state"] in ("reopened", "escalated")
-        return Check(q, reopened,
-                     f"Verdict {partials} and the case moved to '{case['state']}' "
-                     f"(replans: {case['replan_count']})." if reopened
-                     else f"Verdict {partials} but the case did not reopen.")
+        if case["replan_count"] == 0 and case["state"] not in ("reopened", "escalated"):
+            return Check(q, False, f"Verdict {partials} but the case did not reopen.")
+
+        # Reopening is only half the loop. The half that matters is whether the
+        # agent then investigated the new reality and proposed something else.
+        if len(st["proposals"]) < 2:
+            return Check(q, False,
+                         f"Case reopened after {partials} but the agent produced no "
+                         f"second proposal, so it never actually replanned.")
+
+        first, last = st["proposals"][0], st["proposals"][-1]
+        changed = (first["action_type"] != last["action_type"]
+                   or first["action_args_json"] != last["action_args_json"])
+        if not changed:
+            return Check(q, False,
+                         "The replan repeated the original action unchanged, which "
+                         "would repeat the failure.")
+
+        if case["state"] == "reopened":
+            return Check(q, False, "Case is still reopened; the replan did not conclude.")
+
+        return Check(q, True,
+                     f"Verdict {partials} reopened the case; the agent replanned from "
+                     f"'{first['action_type']}' to '{last['action_type']}' and the case "
+                     f"reached '{case['state']}' (replans: {case['replan_count']}).")
 
     if case["state"] == "escalated":
         return Check(q, True, "No feasible option existed; escalated rather than acting.")
-    return Check(q, True, f"Action succeeded; case state '{case['state']}'.")
+
+    # Nothing went wrong here, so this fixture does not answer the question.
+    # Marking it PASS would claim evidence this run does not contain.
+    return Check(q, True,
+                 f"Not exercised: the action succeeded and the case resolved "
+                 f"('{case['state']}'). Failure handling is covered by F1 and F5.",
+                 applicable=False)
 
 
 CHECKS = [q1_decision_correct, q2_obtained_information, q3_respected_constraints,
@@ -295,13 +347,29 @@ def run_fixture(fixture_id: str, *, live: bool, record: bool) -> Result:
         result.provider, result.model = run["provider"], run["model"]
         result.outcome, result.tool_calls = run["outcome"], run["tool_calls"]
 
-        if record and live and isinstance(provider, RecordingProvider):
-            provider.save()
-
         # Approve anything the gate held back, so the evaluation exercises the
         # full path through execution and validation rather than stopping at the
         # approval boundary.
         _auto_approve(case_id)
+
+        # If validation reopened the case, run the agent again. Reopening is only
+        # half the feedback loop; the half that matters is the agent investigating
+        # the new reality and proposing something different. The same provider is
+        # reused so the recording captures both runs and replays them in order.
+        if _case_state(case_id) == "reopened":
+            result.replanned = True
+            # The follow-up is a new order, so the supplier is allowed to fulfil it
+            # normally. Leaving it short-shipping every order forever would test the
+            # replan cap rather than the replan, and that cap is already enforced by
+            # max_replans -> escalate.
+            _set_supplier_behavior(case_id, "confirm_full")
+            rerun = run_case(case_id, provider=provider)
+            result.tool_calls += rerun["tool_calls"]
+            result.outcome = f"{result.outcome} → replanned ({rerun['outcome']})"
+            _auto_approve(case_id)
+
+        if record and live and isinstance(provider, RecordingProvider):
+            provider.save()
 
     except NoProviderKey as exc:
         result.error = str(exc)
@@ -353,14 +421,14 @@ def render_report(results: list[Result], started: datetime) -> str:
         "",
         "## Summary",
         "",
-        "| Fixture | Mode | Model | Outcome | Tool calls | Result |",
-        "|---|---|---|---|---|---|",
+        "| Fixture | Mode | Model | Outcome | Tool calls | Replanned | Result |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in results:
         verdict = "PASS" if r.passed else "FAIL"
         lines.append(
             f"| {r.fixture_id} | {r.mode} | {r.model or '-'} | {r.outcome or r.error[:40]} "
-            f"| {r.tool_calls} | **{verdict}** |"
+            f"| {r.tool_calls} | {'yes' if r.replanned else '—'} | **{verdict}** |"
         )
 
     if questions:
@@ -368,9 +436,12 @@ def render_report(results: list[Result], started: datetime) -> str:
                   "| Fixture | " + " | ".join(f"Q{i+1}" for i in range(len(questions))) + " |",
                   "|---" * (len(questions) + 1) + "|"]
         for r in results:
-            cells = ["PASS" if c.passed else "FAIL" for c in r.checks] or ["-"] * len(questions)
+            cells = [("n/a" if not c.applicable else "PASS" if c.passed else "FAIL")
+                     for c in r.checks] or ["-"] * len(questions)
             lines.append(f"| {r.fixture_id} | " + " | ".join(cells) + " |")
-        lines += ["", "Legend:", ""]
+        lines += ["", "`n/a` means the fixture does not exercise that question. It is "
+                  "excluded from the result rather than counted as a pass.", "",
+                  "Legend:", ""]
         for i, q in enumerate(questions):
             lines.append(f"- **Q{i+1}** — {q}")
 
@@ -390,6 +461,19 @@ def render_report(results: list[Result], started: datetime) -> str:
         "sweep produces reject-and-expedite, accept, modify-down, promotion-bounded "
         "buying, and escalate across the six fixtures.",
         "",
+        "**The feedback loop is exercised with the live model, not simulated.** F1 runs "
+        "the agent, executes, validates, and -- because the supplier short-ships -- runs "
+        "the agent a second time against the changed state. Q6 asserts that the second "
+        "proposal differs from the first and that the case actually concludes; a replan "
+        "that repeated the failed action, or left the case stuck in `reopened`, fails.",
+        "",
+        "**Validation is independent of the agent, not of the world model.** The "
+        "execution-layer checks compare against supplier-reported facts and are fully "
+        "independent. The business-layer check re-derives the projection using the same "
+        "engine the plan used, so an error in that engine would affect plan and "
+        "validation together. The engine is covered separately by unit tests for that "
+        "reason.",
+        "",
         "**Typed tool errors are recovered from.** In F6 the first `propose_plan` call "
         "omitted `disposition`; the tool returned `MISSING_FIELD` and the agent corrected "
         "the call on its next turn rather than failing the run.",
@@ -407,7 +491,8 @@ def render_report(results: list[Result], started: datetime) -> str:
         lines += [f"Case `{r.case_id}` · mode `{r.mode}` · model `{r.model}` · "
                   f"outcome `{r.outcome}` · {r.tool_calls} tool calls", ""]
         for c in r.checks:
-            lines.append(f"- {'PASS' if c.passed else 'FAIL'} — **{c.question}** {c.detail}")
+            mark = "n/a " if not c.applicable else "PASS" if c.passed else "FAIL"
+            lines.append(f"- {mark} — **{c.question}** {c.detail}")
         lines.append("")
     return "\n".join(lines)
 

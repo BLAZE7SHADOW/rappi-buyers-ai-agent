@@ -24,7 +24,7 @@
       "text": "",
       "tool_calls": [
         {
-          "name": "get_demand_evidence",
+          "name": "get_open_orders",
           "args": {}
         }
       ]
@@ -33,7 +33,7 @@
       "text": "",
       "tool_calls": [
         {
-          "name": "get_open_orders",
+          "name": "get_demand_evidence",
           "args": {}
         }
       ]
@@ -69,33 +69,56 @@
       "text": "",
       "tool_calls": [
         {
+          "name": "get_demand_evidence",
+          "args": {
+            "lookback_days": 28
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
+          "name": "simulate_plan",
+          "args": {
+            "action_type": "create_po",
+            "supplier_id": "SUP-A",
+            "expected_receipt_date": "2026-09-24",
+            "qty": 800
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
+        {
           "name": "propose_plan",
           "args": {
-            "important_factors": [
-              "Current usable inventory of 380 units will stock out on 2026-09-27 without action, leading to 600 unmet demand units over 28 days.",
-              "Placing a PO for 800 units with SUP-A delivers on 2026-09-24 (7-day lead time), completely eliminating unmet demand.",
-              "Order cost of $9,600.00 is within the available budget of $20,000.00 and volume fits within available warehouse storage.",
-              "Order cost exceeds autonomy limit ($2,000.00), requiring buyer approval."
-            ],
-            "rationale": "The recommended purchase of 800 units is correct and should be executed. Current usable inventory is 380 units against a forecast demand of 980 units (35 units/day over 28 days). Without intervention, stockout occurs on 2026-09-27 with total unmet demand reaching 600 units. Placing an order for 800 units with SUP-A at $12.00/unit ($9,600.00 total) with a 7-day lead time yields an expected receipt date of 2026-09-24, preventing stockout and meeting all demand. Closing inventory at horizon end will be 200 units (5.7 days of cover), satisfying safety stock requirements and remaining well within the 12-day excess cover policy limit (420 units). Available budget ($20,000.00) and warehouse storage capacity (headroom 180 m\u00b3) fully support this order. Because total spend ($9,600.00) exceeds the autonomy limit of $2,000.00, buyer approval is required.",
-            "action_type": "create_po",
-            "action_args": {
-              "supplier_id": "SUP-A",
-              "expected_receipt_date": "2026-09-24",
-              "qty": 800
-            },
-            "assumptions": [
-              "Demand forecast of 35 units/day over 28 days remains valid for planning purposes."
-            ],
-            "disposition": "accept",
             "evidence_refs": [
-              "get_case_context",
               "get_inventory",
+              "get_open_orders",
               "get_demand_evidence",
               "get_supplier_options",
               "get_constraints",
               "simulate_plan"
-            ]
+            ],
+            "action_args": {
+              "qty": 800,
+              "expected_receipt_date": "2026-09-24",
+              "supplier_id": "SUP-A"
+            },
+            "assumptions": [],
+            "important_factors": [
+              "Usable inventory is 380 units with 0 units on order.",
+              "Daily demand of 35 units leads to a stockout on 2026-09-27 and 600 units of unmet demand over the 28-day horizon.",
+              "SUP-A offers 800 units at $12.00/unit ($9,600.00 total) with a 7-day lead time, arriving 2026-09-24.",
+              "The order eliminates all unmet demand, leaving 200 closing inventory units (5.7 days of cover, within the 12-day policy limit), and satisfies all budget and storage constraints."
+            ],
+            "action_type": "create_po",
+            "rationale": "Current usable stock of 380 units for SKU-1002 at NODE-BOG-F2 will run out on 2026-09-27, creating 600 units of unmet demand over the 28-day horizon under a 35 unit/day forecast. Purchasing 800 units from SUP-A at $12.00/unit ($9,600.00 total) for receipt on 2026-09-24 resolves all 600 units of unmet demand. It leaves a closing inventory of 200 units (5.7 days of cover), meeting safety stock requirements while remaining well within the maximum 12-day cover limit, available budget ($20,000.00), and storage capacity.",
+            "disposition": "accept"
           }
         }
       ]

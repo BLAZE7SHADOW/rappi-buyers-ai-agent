@@ -140,7 +140,14 @@ PYTHONPATH=..:. ../.venv/bin/python -m evals.run_evals                 # replay 
 PYTHONPATH=..:. ../.venv/bin/python -m evals.run_evals --live --record # call the real model
 ```
 
-Evaluation output lands in `backend/evals/report.md`.
+Evaluation output lands in `backend/evals/report.md`. The report scores each fixture
+on the assignment's six evaluation questions; a question a fixture does not exercise
+is marked `n/a` and excluded rather than counted as a pass.
+
+F1 runs the agent **twice** — once to decide, and again after validation reopens the
+case — so the feedback loop is exercised against the live model rather than described.
+The evaluation asserts that the replan proposes something *different* from the action
+that failed, and that the case actually reaches a conclusion.
 
 ## How the agent works
 
