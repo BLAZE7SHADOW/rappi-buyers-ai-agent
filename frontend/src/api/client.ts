@@ -2,6 +2,8 @@ import type {
   ApiErrorDetail,
   CaseDetailResponse,
   CasesResponse,
+  HealthResponse,
+  CaseOption,
 } from '../types';
 
 export class ApiError extends Error {
@@ -25,7 +27,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...(init?.headers || {}),
       },
     });
-  } catch (err) {
+  } catch {
     throw new ApiError(0, {
       error: 'NETWORK_ERROR',
       message: 'Could not reach the backend. Is it running on port 8000?',
@@ -49,9 +51,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   listCases: () => request<CasesResponse>('/api/cases'),
+  caseOptions: () => request<{ options: CaseOption[] }>('/api/catalog/case-options'),
+  createCase: (input: { sku: string; node_id: string; recommended_qty: number; reason: string }) =>
+    request<{ case_id: string; state: string }>('/api/cases', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   getCase: (caseId: string) => request<CaseDetailResponse>(`/api/cases/${encodeURIComponent(caseId)}`),
-  runCase: (caseId: string) =>
-    request<unknown>(`/api/cases/${encodeURIComponent(caseId)}/run`, { method: 'POST' }),
+  runCase: (caseId: string, mode: 'live' | 'replay') =>
+    request<unknown>(`/api/cases/${encodeURIComponent(caseId)}/run`, {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    }),
+  health: () => request<HealthResponse>('/api/health'),
   postMessage: (caseId: string, text: string) =>
     request<{ ok: boolean }>(`/api/cases/${encodeURIComponent(caseId)}/messages`, {
       method: 'POST',
@@ -71,10 +83,6 @@ export const api = {
     request<unknown>(`/api/proposals/${encodeURIComponent(proposalId)}/decline`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
-    }),
-  executeProposal: (proposalId: string) =>
-    request<unknown>(`/api/proposals/${encodeURIComponent(proposalId)}/execute`, {
-      method: 'POST',
     }),
   injectDemoEvent: (caseId: string, behavior: string) =>
     request<{ ok: boolean; behavior: string }>('/api/demo/events', {

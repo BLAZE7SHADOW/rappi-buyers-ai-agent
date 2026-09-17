@@ -293,7 +293,7 @@ def propose_plan(case_id: str, args: dict) -> dict:
     with transaction() as conn:
         case = load_case(conn, case_id)
         try:
-            return create_proposal(
+            result = create_proposal(
                 conn, case,
                 disposition=args["disposition"],
                 action_type=args["action_type"],
@@ -305,6 +305,21 @@ def propose_plan(case_id: str, args: dict) -> dict:
             )
         except Exception as exc:
             raise ToolError("PROPOSAL_REJECTED", str(exc))
+
+    if result["blocked"]:
+        return {
+            "error": "HARD_CONSTRAINT",
+            "message": result["gate"]["reason"],
+            **result,
+        }
+
+    # The gate, not the model, grants delegated authority. Once granted, the
+    # server completes execution and validation as part of the same workflow.
+    if not result["approval_required"]:
+        from app.services.proposals import authorize_and_execute
+
+        result["execution"] = authorize_and_execute(case_id, result["proposal_id"])
+    return result
 
 
 def ask_buyer(case_id: str, args: dict) -> dict:

@@ -36,6 +36,10 @@ class ApprovalRequired(Exception):
     """Execution attempted without the approval the gate demanded."""
 
 
+class InvalidTransition(Exception):
+    """A proposal or case action is not valid from its current state."""
+
+
 def candidate_from_args(action_type: str, args: dict) -> Candidate:
     def as_date(v):
         return date.fromisoformat(v) if isinstance(v, str) and v else None
@@ -121,6 +125,16 @@ def create_proposal(
     ).mappings().all()
     version = len(prior) + 1
 
+    # A replan replaces any proposal that was still waiting for a decision.
+    conn.execute(
+        s.proposals.update()
+        .where(
+            s.proposals.c.case_id == case["case_id"],
+            s.proposals.c.state.in_(["proposed", "approved"]),
+        )
+        .values(state="superseded")
+    )
+
     sim_dict = simulation_to_dict(simulation)
     residual = {
         "unmet_units": simulation.residual_unmet,
@@ -184,6 +198,7 @@ def _revalidate(conn: Connection, case: dict, proposal: dict) -> dict:
 
 def authorize_and_execute(case_id: str, proposal_id: str) -> dict:
     """Execute an authorised proposal, then validate what actually happened."""
+    stale_reason: str | None = None
     with transaction() as conn:
         case = load_case(conn, case_id)
         proposal = conn.execute(
@@ -194,17 +209,33 @@ def authorize_and_execute(case_id: str, proposal_id: str) -> dict:
 
         if proposal["state"] == "blocked":
             raise StalePlan("Proposal is blocked by a hard constraint and cannot be executed.")
-        if proposal["approval_required"] and proposal["state"] != "approved":
+        if proposal["approval_required"] and proposal["state"] == "proposed":
             raise ApprovalRequired(
                 f"Proposal {proposal_id} requires buyer approval: {proposal['approval_reason']}"
             )
+        allowed_state = "approved" if proposal["approval_required"] else "proposed"
+        if proposal["state"] != allowed_state:
+            raise InvalidTransition(
+                f"Proposal {proposal_id} is '{proposal['state']}' and cannot execute; "
+                f"expected '{allowed_state}'."
+            )
         if proposal["action_type"] in (ActionType.KEEP_PLAN.value, ActionType.NONE.value):
-            append_event(conn, case_id, EventKind.ACTION, "No action required",
-                         {"proposal_id": proposal_id,
-                          "note": "Existing plan judged sufficient; nothing was ordered."})
-            set_case_state(conn, case_id, "resolved")
-            return {"executed": False, "case_state": "resolved",
-                    "note": "Existing plan is sufficient; no purchase made."}
+            escalated = proposal["disposition"] == "escalate"
+            next_state = "escalated" if escalated else "resolved"
+            note = (
+                "No feasible action exists; the case requires human intervention."
+                if escalated
+                else "Existing plan is sufficient; no purchase made."
+            )
+            conn.execute(
+                s.proposals.update().where(s.proposals.c.proposal_id == proposal_id)
+                .values(state="executed")
+            )
+            append_event(conn, case_id, EventKind.ACTION,
+                         "Escalated without purchasing" if escalated else "No action required",
+                         {"proposal_id": proposal_id, "note": note})
+            set_case_state(conn, case_id, next_state)
+            return {"executed": False, "case_state": next_state, "note": note}
 
         # Fresh feasibility check against current state, not the state at proposal time.
         fresh = _revalidate(conn, case, dict(proposal))
@@ -214,11 +245,22 @@ def authorize_and_execute(case_id: str, proposal_id: str) -> dict:
             append_event(conn, case_id, EventKind.ERROR, "Plan became infeasible before execution",
                          {"proposal_id": proposal_id, "reasons": reasons})
             set_case_state(conn, case_id, "investigating")
-            raise StalePlan(f"Plan is no longer feasible: {reasons}")
+            conn.execute(
+                s.proposals.update().where(s.proposals.c.proposal_id == proposal_id)
+                .values(state="failed")
+            )
+            stale_reason = reasons
+        else:
+            candidate = fresh["candidate"]
+            behavior = case["supplier_behavior"]
+            conn.execute(
+                s.proposals.update().where(s.proposals.c.proposal_id == proposal_id)
+                .values(state="executing")
+            )
+            set_case_state(conn, case_id, "executing")
 
-        candidate = fresh["candidate"]
-        behavior = case["supplier_behavior"]
-        set_case_state(conn, case_id, "executing")
+    if stale_reason is not None:
+        raise StalePlan(f"Plan is no longer feasible: {stale_reason}")
 
     # Outside the transaction: the supplier is an external system.
     try:
@@ -226,16 +268,47 @@ def authorize_and_execute(case_id: str, proposal_id: str) -> dict:
             case_id=case_id, proposal_id=proposal_id, version=proposal["version"],
             candidate=candidate, behavior=behavior,
             node_id=case["node_id"], sku=case["sku"],
+            budget_period=case["as_of_date"].strftime("%Y-%m"),
         )
     except ActionOutcomeUnknown:
         with transaction() as conn:
+            conn.execute(
+                s.proposals.update().where(s.proposals.c.proposal_id == proposal_id)
+                .values(state="failed")
+            )
+            conn.execute(
+                s.actions.update().where(
+                    s.actions.c.proposal_id == proposal_id,
+                    s.actions.c.state == "submitted",
+                ).values(state="reconciliation_required")
+            )
+            append_event(
+                conn, case_id, EventKind.ERROR, "Execution requires reconciliation",
+                {"proposal_id": proposal_id,
+                 "note": "The supplier may have committed, but local state could not be applied safely."},
+            )
+            conn.execute(
+                s.cases.update().where(s.cases.c.case_id == case_id)
+                .values(supplier_behavior="confirm_full")
+            )
             set_case_state(conn, case_id, "escalated")
         return {"executed": False, "case_state": "escalated",
                 "error": "ACTION_OUTCOME_UNKNOWN",
                 "note": "Supplier outcome could not be established. Escalated rather than "
                         "retried, because a blind retry could duplicate a real order."}
 
+    with transaction() as conn:
+        # Supplier behaviour is a one-shot demo event describing the next call.
+        conn.execute(
+            s.cases.update().where(s.cases.c.case_id == case_id)
+            .values(supplier_behavior="confirm_full")
+        )
     verdict = validate_and_route(case_id, result["action_id"])
+    with transaction() as conn:
+        conn.execute(
+            s.proposals.update().where(s.proposals.c.proposal_id == proposal_id)
+            .values(state="executed" if result["state"] == "completed" else "failed")
+        )
     return {"executed": True, **result, "verdict": verdict.to_dict()}
 
 
@@ -279,6 +352,14 @@ def approve(case_id: str, proposal_id: str, approver: str = "buyer") -> dict:
                 "This proposal is blocked by a hard constraint. Approval cannot waive "
                 "budget or capacity; the underlying constraint must change first."
             )
+        if proposal["state"] != "proposed":
+            raise InvalidTransition(
+                f"Proposal {proposal_id} is '{proposal['state']}' and cannot be approved."
+            )
+        if not proposal["approval_required"]:
+            raise InvalidTransition(
+                f"Proposal {proposal_id} is within delegated authority and does not need approval."
+            )
         conn.execute(s.proposals.update()
                      .where(s.proposals.c.proposal_id == proposal_id)
                      .values(state="approved", decided_by=approver,
@@ -293,6 +374,15 @@ def approve(case_id: str, proposal_id: str, approver: str = "buyer") -> dict:
 
 def decline(case_id: str, proposal_id: str, reason: str = "") -> dict:
     with transaction() as conn:
+        proposal = conn.execute(
+            select(s.proposals).where(s.proposals.c.proposal_id == proposal_id)
+        ).mappings().first()
+        if proposal is None:
+            raise ValueError("Unknown proposal")
+        if proposal["state"] != "proposed" or not proposal["approval_required"]:
+            raise InvalidTransition(
+                f"Proposal {proposal_id} is '{proposal['state']}' and cannot be declined."
+            )
         conn.execute(s.proposals.update()
                      .where(s.proposals.c.proposal_id == proposal_id)
                      .values(state="declined", decided_by="buyer",

@@ -74,7 +74,29 @@ def test_hard_constraint_cannot_be_waived_by_approving(db):
         approve(case_id, result["proposal_id"])
 
 
-def test_affordable_action_within_limits_executes_autonomously(db):
+def test_plan_that_becomes_infeasible_is_failed_and_returns_to_investigation(db):
+    from app.db import schema as sch
+    from app.db.engine import transaction
+    from app.services.proposals import StalePlan, approve
+
+    case_id = make_case()
+    result = _propose(db, case_id, disposition="reject", action_type="expedite_po",
+                      args=expedite_args())
+    with transaction() as conn:
+        conn.execute(sch.budgets.update().values(limit_minor=0))
+
+    with pytest.raises(StalePlan):
+        approve(case_id, result["proposal_id"])
+
+    with transaction() as conn:
+        proposal = conn.execute(sch.proposals.select().where(
+            sch.proposals.c.proposal_id == result["proposal_id"]
+        )).mappings().one()
+    assert proposal["state"] == "failed"
+    assert _case(db, case_id)["state"] == "investigating"
+
+
+def test_affordable_action_is_authorized_by_the_gate(db):
     # 1,000 usable against 40/day runs out on day 26; a 500-unit order at $1.00
     # closes the gap for $500, well inside the $2,000 autonomy limit, and leaves
     # 380 units of cover -- under the 12-day excess ceiling of 480.
@@ -85,6 +107,40 @@ def test_affordable_action_within_limits_executes_autonomously(db):
     assert result["blocked"] is False
     assert result["approval_required"] is False
     assert result["case_state"] == "authorized"
+
+
+def test_agent_tool_executes_an_authorized_action_and_validates_it(db):
+    from app.agent.tools import propose_plan
+
+    case_id = make_case(budget_minor=900_000, po=None, demand_per_day=40,
+                        expedite=False, unit_price=100)
+    result = propose_plan(case_id, {
+        "disposition": "accept",
+        "action_type": "create_po",
+        "action_args": create_po_args(qty=500),
+        "rationale": "The simulated plan closes the gap within delegated authority.",
+    })
+
+    assert result["approval_required"] is False
+    assert result["execution"]["executed"] is True
+    assert result["execution"]["verdict"]["verdict"] == "PASS"
+    assert _case(db, case_id)["state"] == "resolved"
+
+
+def test_agent_tool_routes_escalation_to_a_terminal_state(db):
+    from app.agent.tools import propose_plan
+
+    case_id = make_case(budget_minor=0, po=None, demand_per_day=100)
+    result = propose_plan(case_id, {
+        "disposition": "escalate",
+        "action_type": "none",
+        "action_args": {},
+        "rationale": "No feasible paid action exists with zero budget.",
+    })
+
+    assert result["execution"]["executed"] is False
+    assert result["execution"]["case_state"] == "escalated"
+    assert _case(db, case_id)["state"] == "escalated"
 
 
 # --------------------------------------------------------------------------- #
@@ -103,10 +159,9 @@ def test_duplicate_submission_creates_only_one_order(db):
     first = approve(case_id, prop["proposal_id"])
     assert first["executed"] is True
 
-    from app.services.proposals import authorize_and_execute
-    second = authorize_and_execute(case_id, prop["proposal_id"])
-    assert second.get("duplicate_suppressed") is True
-    assert second["action_id"] == first["action_id"]
+    from app.services.proposals import InvalidTransition, authorize_and_execute
+    with pytest.raises(InvalidTransition):
+        authorize_and_execute(case_id, prop["proposal_id"])
 
     with transaction() as conn:
         rows = conn.execute(select(sch.actions)).mappings().all()

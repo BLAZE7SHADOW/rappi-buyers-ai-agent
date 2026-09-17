@@ -84,6 +84,7 @@ def execute(
     behavior: str = "confirm_full",
     node_id: str = "",
     sku: str = "",
+    budget_period: str = "",
 ) -> dict:
     """Execute one authorised action and return its persisted result."""
     key = idempotency_key(case_id, proposal_id, version, candidate)
@@ -191,7 +192,7 @@ def execute(
             po_id = _apply_create(conn, candidate, response, node_id=node_id, sku=sku,
                                   case_id=case_id)
 
-        _commit_budget(conn, node_id, candidate)
+        _commit_budget(conn, node_id, budget_period, candidate)
 
         conn.execute(s.actions.update()
                      .where(s.actions.c.action_id == action_id)
@@ -240,7 +241,7 @@ def _apply_expedite(conn, candidate: Candidate, response) -> str:
     confirmed = min(response.confirmed_qty, outstanding)
     cancelled = row["cancelled_qty"] + max(0, outstanding - confirmed)
 
-    conn.execute(
+    updated = conn.execute(
         s.purchase_orders.update()
         .where(s.purchase_orders.c.po_id == candidate.po_id,
                s.purchase_orders.c.version == row["version"])
@@ -250,21 +251,32 @@ def _apply_expedite(conn, candidate: Candidate, response) -> str:
                 fee_minor=row["fee_minor"] + candidate.fee_minor,
                 version=row["version"] + 1)
     )
+    if updated.rowcount != 1:
+        raise ActionOutcomeUnknown(
+            f"Purchase order {candidate.po_id} changed while the supplier request was in flight."
+        )
     return candidate.po_id
 
 
-def _commit_budget(conn, node_id: str, candidate: Candidate) -> None:
+def _commit_budget(conn, node_id: str, period: str, candidate: Candidate) -> None:
     """Move funds from available to committed, once."""
     cost = candidate.total_cost_minor
     if cost <= 0:
         return
     row = conn.execute(
-        select(s.budgets).where(s.budgets.c.scope == node_id)
+        select(s.budgets).where(
+            s.budgets.c.scope == node_id,
+            s.budgets.c.period == period,
+        )
     ).mappings().first()
     if row is None:
         return
-    conn.execute(
+    updated = conn.execute(
         s.budgets.update()
         .where(s.budgets.c.id == row["id"], s.budgets.c.version == row["version"])
         .values(committed_minor=row["committed_minor"] + cost, version=row["version"] + 1)
     )
+    if updated.rowcount != 1:
+        raise ActionOutcomeUnknown(
+            f"Budget {node_id}/{period} changed while the supplier request was in flight."
+        )
