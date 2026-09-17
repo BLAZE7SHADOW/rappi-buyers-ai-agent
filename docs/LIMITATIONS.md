@@ -55,6 +55,11 @@ written down is a different thing from one that is not.
   executed, so there is no undo: reversing it would need a cancellation capability the
   agent deliberately does not have. The controls are the autonomy limits themselves,
   which decide what may execute unattended in the first place.
+- **Whether the agent asks is a judgement, not a rule.** F7 shows it asking when the
+  answer changes the order, and the other fixtures show it deciding when it does not,
+  but that boundary is the model applying a stated principle rather than a check the
+  code enforces. A different model, or a differently worded case, may draw it
+  elsewhere.
 - **Results are one sample.** Model behaviour varies between runs. The committed
   recordings are the specific runs the report describes.
 - **The tool budget is 12 calls and the replan budget is 2.** Both are demo values.

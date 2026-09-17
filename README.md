@@ -194,6 +194,12 @@ Nine tools. Six read evidence, one computes, two write to the case:
 | `propose_plan` | Records the decision; the server gates it and executes autonomous plans |
 | `ask_buyer` | Asks for context or a judgement call, and pauses |
 
+The agent asks the buyer only when the answer would change the order. An
+unverifiable fact that would not change the action is recorded as an assumption on
+the proposal instead. That line is worth stating precisely because it is easy to get
+wrong in both directions: an agent that never asks quietly guesses, and one that
+always asks is a form that takes longer than doing the job.
+
 **There is deliberately no `execute` tool.** Execution happens server-side immediately
 when the gate grants delegated authority, or after a buyer approves. That is why the
 agent cannot approve its own spending — it is a property of the architecture, not a
@@ -246,7 +252,7 @@ Supplier confirmation and physical receipt are different milestones.
 | Investigate → decide → act | `app/agent/loop.py` → `services/gate.py` → `services/executor.py` |
 | Recommendation not assumed correct | **F1** rejects the 800; **F3** modifies it down |
 | Multiple interacting constraints | F1 (budget) · F3 (capacity **and** excess stock) · F6 (budget exhausted) |
-| **S1** accept / modify / reject | F2 · F3 · F1; `ask_buyer` supports investigation when evidence is insufficient |
+| **S1** accept / modify / reject / investigate | F2 · F3 · F1 · **F7** |
 | **S2** supplier cannot fulfil | F1 round 2: partial confirmation → residual exposure |
 | S2 — source elsewhere / another supplier | Replan compares SUP-A vs SUP-B |
 | S2 — additional PO required | F1 replan creates the 600-unit follow-up |
@@ -259,7 +265,7 @@ Supplier confirmation and physical receipt are different milestones.
 | What data should exist | 18 tables, 6 fixtures |
 | How decisions are made | `domain/candidates.py::rank` |
 | What actions are allowed | Exactly three plan types |
-| When human approval applies | `services/gate.py`; approval bound to proposal version |
+| When human approval applies | `services/gate.py`; approval bound to proposal version. **F8** shows the opposite case: inside delegated authority, the gate authorises and the server executes with no human |
 | How results are validated | `services/validator.py`, three layers |
 | **Feedback loop** | `PARTIAL`/`FAIL` → reopen → replan → revalidate |
 | Outcome differs from expected | F1 partial confirmation; F5 timeout-after-success |
@@ -277,6 +283,8 @@ Supplier confirmation and physical receipt are different milestones.
 | **F4** | Sales running 2.6× forecast, promotion ends in 6 days | Bound the uplift; do not extrapolate |
 | **F5** | Supplier commits, response lost in transit | Recover by idempotency key; exactly one order |
 | **F6** | Real shortfall, zero budget | Escalate; no fabricated solution |
+| **F7** | Unconfirmed bulk order that no system of record holds | Ask the buyer, pause, then order to the answer |
+| **F8** | Small, cheap, fully covered replenishment | Execute and validate autonomously; no human |
 
 ## Documentation
 

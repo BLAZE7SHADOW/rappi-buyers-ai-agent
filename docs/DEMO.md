@@ -156,6 +156,25 @@ on another case and run it:
 
 ---
 
+## 8 · Two short codas, if there is time (60s)
+
+**F7 — the agent asks instead of guessing.** Sales flagged a possible 500-unit
+corporate order that exists in no forecast, promotion or PO.
+
+> "It can't verify this, and it changes the order by 500 units. So it doesn't guess
+> and it doesn't bury it in an assumption — it stops and asks, with both options
+> costed and a stated default. Answer it, and it resumes and orders to the answer."
+
+**F8 — the agent acts alone.** A small replenishment fully inside delegated authority.
+
+> "No approval step here, and nothing was skipped. The same gate ran and granted
+> authority because the spend is inside the limit and no demand is left unserved —
+> the green panel says so with the numbers. It ordered, and the validator still
+> checked the result independently. Autonomy is a policy outcome, not the absence
+> of one."
+
+---
+
 ## Fallback if the live agent misbehaves
 
 Model runs vary. If a run goes sideways mid-demo, say so plainly, reset the demo, and
