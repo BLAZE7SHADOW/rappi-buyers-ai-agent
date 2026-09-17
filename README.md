@@ -103,7 +103,8 @@ the full feedback loop.
 Requires **Python 3.11+** and **Node 18+**.
 
 ```bash
-git clone <this-repo> && cd Rappi
+git clone https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent.git
+cd rappi-buyers-ai-agent
 
 python3.11 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
