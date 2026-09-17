@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.db.engine import create_all
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    create_all()
+    yield
+
 
 app = FastAPI(
     title="AI Purchasing Agent",
@@ -16,6 +24,7 @@ app = FastAPI(
         "checks what actually happened."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -26,8 +35,3 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    create_all()

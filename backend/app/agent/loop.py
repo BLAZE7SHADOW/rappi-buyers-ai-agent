@@ -38,6 +38,13 @@ class RunConflict(Exception):
     """A run is already active for this case."""
 
 
+class InvalidCaseState(Exception):
+    """The workflow is waiting on another actor or has already finished."""
+
+
+RUNNABLE_STATES = {"investigating", "pending_investigation", "reopened"}
+
+
 def _opening_message(case: dict) -> str:
     trigger = case["trigger_payload"]
     lines = [
@@ -77,13 +84,16 @@ def run_case(
     real system rather than a mock of it.
     """
     settings = get_settings()
-    budget = max_tool_calls or settings.max_tool_calls
-    provider = provider or get_provider()
+    budget = settings.max_tool_calls if max_tool_calls is None else max_tool_calls
 
     with transaction() as conn:
         case = load_case(conn, case_id)
         if case is None:
             raise ValueError(f"Unknown case {case_id}")
+        if case["state"] not in RUNNABLE_STATES:
+            raise InvalidCaseState(
+                f"Case {case_id} is '{case['state']}' and cannot run the agent now."
+            )
         active = conn.execute(
             select(s.agent_runs).where(s.agent_runs.c.case_id == case_id,
                                        s.agent_runs.c.status == "running")
@@ -91,9 +101,12 @@ def run_case(
         if active:
             raise RunConflict(f"Run {active['run_id']} is already active for {case_id}.")
 
+        provider = provider or get_provider()
+
         run_id = f"RUN-{uuid.uuid4().hex[:8].upper()}"
         conn.execute(s.agent_runs.insert().values(
-            run_id=run_id, case_id=case_id, mode="live",
+            run_id=run_id, case_id=case_id,
+            mode="replay" if provider.name.startswith("replay:") else "live",
             provider=provider.name, model=provider.model, status="running",
         ))
 
@@ -125,6 +138,7 @@ def run_case(
     seen: set[str] = set()
     outcome = "budget_exhausted"
     final_text = ""
+    no_tool_turns = 0
 
     try:
         while calls_made < budget:
@@ -132,14 +146,49 @@ def run_case(
 
             if not turn.wants_tools:
                 final_text = turn.text
-                outcome = "stopped_without_proposal"
-                break
+                no_tool_turns += 1
+                if no_tool_turns >= 2:
+                    outcome = "stopped_without_proposal"
+                    break
+                messages.append(Message(role="model", text=turn.text, raw=turn.raw))
+                messages.append(Message(
+                    role="user",
+                    text=(
+                        "The investigation is not complete until you use a terminal "
+                        "tool. If evidence is sufficient, call propose_plan now. If a "
+                        "business answer is still required, call ask_buyer. Do not "
+                        "finish with plain text."
+                    ),
+                ))
+                continue
+
+            no_tool_turns = 0
 
             messages.append(Message(role="model", text=turn.text, tool_calls=turn.tool_calls,
                                     raw=turn.raw))
 
             terminal_hit = False
+            budget_hit = False
             for call in turn.tool_calls:
+                if terminal_hit:
+                    messages.append(Message(
+                        role="tool", tool_name=call.name,
+                        tool_result={
+                            "error": "SKIPPED_AFTER_TERMINAL",
+                            "message": "A terminal case action already completed in this turn.",
+                        },
+                    ))
+                    continue
+                if calls_made >= budget:
+                    budget_hit = True
+                    messages.append(Message(
+                        role="tool", tool_name=call.name,
+                        tool_result={
+                            "error": "TOOL_BUDGET_EXHAUSTED",
+                            "message": f"The strict tool-call budget of {budget} is exhausted.",
+                        },
+                    ))
+                    continue
                 calls_made += 1
                 signature = f"{call.name}:{json.dumps(call.args, sort_keys=True)}"
 
@@ -163,6 +212,9 @@ def run_case(
                     terminal_hit = True
 
             if terminal_hit:
+                break
+            if budget_hit or calls_made >= budget:
+                outcome = "budget_exhausted"
                 break
 
     except Exception as exc:
