@@ -61,6 +61,8 @@ REQUIRED_EVIDENCE = {
     "F4": ["get_demand_evidence"],
     "F5": ["get_open_orders", "simulate_plan"],
     "F6": ["get_constraints", "simulate_plan"],
+    "F7": ["get_demand_evidence", "ask_buyer"],
+    "F8": ["get_constraints", "simulate_plan"],
 }
 
 
@@ -88,6 +90,9 @@ class Result:
     error: str = ""
     # (tool, error_code) pairs the model hit and then recovered from in this run.
     recoveries: list[tuple[str, str]] = field(default_factory=list)
+    # Set when the agent paused to ask the buyer and the harness answered.
+    asked_buyer: bool = False
+    buyer_answer: str = ""
 
     @property
     def passed(self) -> bool:
@@ -98,6 +103,7 @@ class Result:
             "fixture_id": self.fixture_id, "case_id": self.case_id, "mode": self.mode,
             "provider": self.provider, "model": self.model, "outcome": self.outcome,
             "tool_calls": self.tool_calls, "replanned": self.replanned,
+            "asked_buyer": self.asked_buyer,
             "passed": self.passed, "error": self.error,
             "checks": [{"question": c.question, "passed": c.passed,
                         "applicable": c.applicable, "detail": c.detail}
@@ -197,6 +203,10 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
     q = "Did the agent obtain the necessary information?"
     required = REQUIRED_EVIDENCE.get(fixture_id, [])
     used = set(st["tools_used"])
+    asked = _buyer_question_check(q, expected, st)
+    if asked is not None and not asked.passed:
+        return asked
+
     missing = [t for t in required if t not in used]
     if missing:
         return Check(q, False, f"Never called: {', '.join(missing)}. Used: {sorted(used)}.")
@@ -221,6 +231,30 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
         f"Consulted {len(used)} distinct tools including {', '.join(required)}; "
         "every selected evidence and simulation call stated the business question "
         "it answered.",
+    )
+
+
+def _buyer_question_check(q: str, expected: dict, st: dict) -> Check | None:
+    """For fixtures whose decisive fact exists in no system of record."""
+    if not expected.get("expects_buyer_question"):
+        return None
+    questions = [e for e in st["events"] if e["kind"] == "question"]
+    answers = [e for e in st["events"] if e["kind"] == "answer"]
+    if not questions:
+        return Check(
+            q, False,
+            "The decisive fact is in no system of record, but the agent never asked "
+            "the buyer; it decided on an assumption instead.",
+        )
+    if not answers:
+        return Check(q, False, "The agent asked the buyer but the answer was never recorded.")
+    proposals = [e for e in st["events"] if e["kind"] == "proposal"]
+    if proposals and proposals[0]["seq"] < questions[0]["seq"]:
+        return Check(q, False, "The agent proposed before asking, so the answer changed nothing.")
+    return Check(
+        q, True,
+        f"Asked the buyer what no tool could answer (\"{questions[0]['payload'].get('question', '')[:90]}\") "
+        f"and waited for the answer before deciding.",
     )
 
 
@@ -262,6 +296,24 @@ def q4_appropriate_action(fixture_id: str, expected: dict, st: dict) -> Check:
         matching = [a for a in completed if a["action_type"] == want]
         if not matching:
             return Check(q, False, f"Expected a completed '{want}' action; none completed.")
+
+    # A fixture inside delegated authority must have reached execution with no
+    # human in the loop at all. An approval event here would mean the gate asked
+    # for a buyer, which is the opposite of what the fixture is demonstrating.
+    if expected.get("gate_outcome") == "autonomous" and expected.get("approval_required") is False:
+        if p["approval_required"]:
+            return Check(q, False, "The gate demanded approval for a plan expected to be autonomous.")
+        approvals = [e for e in st["events"] if e["kind"] == "approval"]
+        if approvals:
+            return Check(q, False,
+                         f"Expected no human decision, but {len(approvals)} approval event(s) exist.")
+        if not completed:
+            return Check(q, False, "Authorised autonomously but nothing was executed.")
+        return Check(
+            q, True,
+            f"Action '{p['action_type']}' was authorised by the gate and executed with no "
+            f"approval event: {len(completed)} execution(s) across {len(st['proposals'])} proposal(s).",
+        )
     # One execution per proposal. More than that means a duplicate, which is the
     # failure this count exists to catch.
     if len(completed) > len(st["proposals"]):
@@ -391,6 +443,17 @@ def run_fixture(fixture_id: str, *, live: bool, record: bool) -> Result:
         result.provider, result.model = run["provider"], run["model"]
         result.outcome, result.tool_calls = run["outcome"], run["tool_calls"]
 
+        # If the agent stopped to ask the buyer something, stand in for the buyer
+        # and let it continue. Asking is only half of `investigate`; the half that
+        # matters is whether the answer actually changes what the agent proposes.
+        if _case_state(case_id) == "awaiting_buyer":
+            result.asked_buyer = True
+            answer = fixture.expected.get("buyer_answer", "")
+            result.buyer_answer = _answer_open_question(case_id, answer)
+            resumed = run_case(case_id, provider=provider)
+            result.tool_calls += resumed["tool_calls"]
+            result.outcome = f"{result.outcome} → answered ({resumed['outcome']})"
+
         # Approve anything the gate held back, so the evaluation exercises the
         # full path through execution and validation rather than stopping at the
         # approval boundary.
@@ -450,6 +513,36 @@ def _recoveries(st: dict) -> list[tuple[str, str]]:
         if recovered and (tool, code) not in out:
             out.append((tool, code))
     return out
+
+
+def _answer_open_question(case_id: str, answer: str) -> str:
+    """Stand in for the buyer answering the agent's question.
+
+    Mirrors POST /interactions/{id}/respond: record the answer, log it, and put
+    the case back into a state the agent may resume from.
+    """
+    from datetime import datetime
+
+    from app.db.repo import append_event, set_case_state
+    from app.domain.types import EventKind
+
+    with transaction() as conn:
+        row = conn.execute(
+            select(s.interactions).where(
+                s.interactions.c.case_id == case_id,
+                s.interactions.c.answer.is_(None),
+            ).order_by(s.interactions.c.interaction_id)
+        ).mappings().first()
+        if row is None:
+            return ""
+        conn.execute(s.interactions.update()
+                     .where(s.interactions.c.interaction_id == row["interaction_id"])
+                     .values(answer=answer, answered_at=datetime.utcnow()))
+        append_event(conn, case_id, EventKind.ANSWER, "Buyer answered",
+                     {"interaction_id": row["interaction_id"],
+                      "question": row["question"], "answer": answer})
+        set_case_state(conn, case_id, "investigating")
+    return answer
 
 
 def _auto_approve(case_id: str) -> None:
