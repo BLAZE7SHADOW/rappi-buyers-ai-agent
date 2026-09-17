@@ -55,12 +55,7 @@ export function ProposalCard({
         </div>
       </div>
 
-      {proposal.approval_reason && (
-        <div className="mt-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-300">Why a buyer must decide</p>
-          <p className="mt-1 text-sm leading-5 text-amber-100">{proposal.approval_reason}</p>
-        </div>
-      )}
+      {proposal.approval_reason && <GateDecision proposal={proposal} />}
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ProofMetric label="Affected quantity" value={simulation.qty ? `${num(simulation.qty)} units` : 'No new units'} />
@@ -176,6 +171,39 @@ function describeAction(proposal: Proposal, simulation: { label?: string; suppli
   if (proposal.action_type === 'keep_plan') return 'Keep the current purchasing plan';
   if (proposal.action_type === 'none') return 'Escalate without placing an order';
   return titleCase(proposal.action_type);
+}
+
+/** The gate has three outcomes, and the reason text only makes sense next to the
+ *  one that actually applied. Showing the autonomous case explicitly is the point:
+ *  delegated authority is granted server-side, not claimed by the model. */
+function GateDecision({ proposal }: { proposal: Proposal }) {
+  const outcome = proposal.state === 'blocked'
+    ? 'blocked'
+    : proposal.approval_required ? 'approval' : 'autonomous';
+  const style = {
+    blocked: { box: 'border-red-800/60 bg-red-950/20', head: 'text-red-300', body: 'text-red-100', title: 'Blocked by a hard constraint' },
+    approval: { box: 'border-amber-800/60 bg-amber-950/20', head: 'text-amber-300', body: 'text-amber-100', title: 'Why a buyer must decide' },
+    autonomous: { box: 'border-emerald-800/60 bg-emerald-950/20', head: 'text-emerald-300', body: 'text-emerald-100', title: 'Authorized automatically under delegated authority' },
+  }[outcome];
+  return (
+    <div className={`mt-4 rounded-lg border p-3 ${style.box}`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide ${style.head}`}>{style.title}</p>
+      <p className={`mt-1 text-sm leading-5 ${style.body}`}>{proposal.approval_reason}</p>
+      {outcome === 'autonomous' && (
+        <p className="mt-2 text-xs leading-5 text-gray-400">
+          The policy gate ran server-side and granted authority; the agent has no tool that can
+          execute a purchase. The decision is recorded in the technical audit log and the action
+          is still independently validated.
+        </p>
+      )}
+      {outcome === 'blocked' && (
+        <p className="mt-2 text-xs leading-5 text-gray-400">
+          Approval cannot waive this. The underlying constraint must change before the action
+          can be authorized.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function ProofMetric({ label, value, good }: { label: string; value: string; good?: boolean }) {

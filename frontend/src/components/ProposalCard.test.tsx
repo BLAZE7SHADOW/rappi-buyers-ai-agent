@@ -41,4 +41,33 @@ describe('ProposalCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /approve and execute/i }));
     expect(approve).toHaveBeenCalledOnce();
   });
+
+  // The gate reason text reads as its opposite under the wrong heading, so each
+  // outcome must be labelled with the decision that actually applied.
+  it('labels an autonomous plan as authorized rather than awaiting a buyer', () => {
+    const autonomous: Proposal = {
+      ...proposal,
+      approval_required: false,
+      approval_reason: 'Within delegated authority: $500.00 spend, $0.00 fees, no residual shortage.',
+    };
+    render(<ProposalCard proposal={autonomous} caseState="resolved" busy={false} onApprove={vi.fn()} onDecline={vi.fn()} />);
+
+    expect(screen.getByText(/authorized automatically under delegated authority/i)).toBeInTheDocument();
+    expect(screen.getByText(/the policy gate ran server-side/i)).toBeInTheDocument();
+    expect(screen.queryByText(/why a buyer must decide/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /approve and execute/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a blocked plan as unwaivable and offers no approval control', () => {
+    const blocked: Proposal = {
+      ...proposal,
+      state: 'blocked',
+      approval_reason: 'Hard constraint not satisfied: $12,000.00 exceeds available budget.',
+    };
+    render(<ProposalCard proposal={blocked} caseState="investigating" busy={false} onApprove={vi.fn()} onDecline={vi.fn()} />);
+
+    expect(screen.getByText(/blocked by a hard constraint/i)).toBeInTheDocument();
+    expect(screen.getByText(/approval cannot waive this/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /approve and execute/i })).not.toBeInTheDocument();
+  });
 });
