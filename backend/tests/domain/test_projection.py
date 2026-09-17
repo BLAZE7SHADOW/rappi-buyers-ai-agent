@@ -64,16 +64,35 @@ def test_damaged_stock_cannot_drive_usable_below_zero():
 
 
 def test_only_outstanding_quantity_counts_as_incoming_supply():
-    """Units already received or cancelled are not incoming supply."""
+    """Confirmed quantity is net of cancellation; only receipts reduce it further.
+
+    Requested 1000, supplier confirmed 800 and cancelled 200, of which 300 have
+    arrived. 500 units are still owed.
+    """
     order = OpenOrder(
         po_id="PO-1", sku="SKU", node_id="NODE", supplier_id="SUP-A",
-        requested_qty=1000, confirmed_qty=1000, received_qty=300, cancelled_qty=200,
+        requested_qty=1000, confirmed_qty=800, received_qty=300, cancelled_qty=200,
         requested_date=START, confirmed_date=START + timedelta(days=5),
         status=POStatus.PARTIALLY_CONFIRMED,
     )
     assert order.outstanding_qty == 500
     receipts = orders_to_receipts([order])
     assert [r.qty for r in receipts] == [500]
+
+
+def test_cancellation_is_not_double_counted_against_confirmed_quantity():
+    """A partial confirmation must not understate what is still coming.
+
+    Double-counting here overstates the shortage, which drives an unnecessary
+    second order on top of supply that is already inbound.
+    """
+    order = OpenOrder(
+        po_id="PO-9", sku="SKU", node_id="NODE", supplier_id="SUP-A",
+        requested_qty=2000, confirmed_qty=1200, received_qty=0, cancelled_qty=800,
+        requested_date=START, confirmed_date=START + timedelta(days=10),
+        status=POStatus.PARTIALLY_CONFIRMED,
+    )
+    assert order.outstanding_qty == 1200
 
 
 def test_unconfirmed_orders_stay_out_of_the_baseline():

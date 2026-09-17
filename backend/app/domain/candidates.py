@@ -85,6 +85,27 @@ def round_to_pack(qty: int, quote: SupplierQuote) -> int:
     return qty
 
 
+def affordable_quantity(ctx: PlanningContext, quote: SupplierQuote) -> int:
+    """The largest pack-aligned quantity this supplier could sell within budget.
+
+    Rounds *down* to the pack size, unlike :func:`round_to_pack`, because the
+    point is to stay under a ceiling rather than to reach a minimum. Returns 0 if
+    even the supplier's minimum order is unaffordable -- in which case this
+    supplier genuinely offers no option and the situation needs escalation.
+    """
+    if ctx.budget is None or quote.unit_price_minor <= 0:
+        return 0
+
+    max_units = ctx.budget.available_minor // quote.unit_price_minor
+    max_units = min(max_units, quote.available_units)
+
+    if quote.pack_size > 1:
+        max_units -= max_units % quote.pack_size
+    if max_units < quote.moq:
+        return 0
+    return int(max_units)
+
+
 def baseline_projection(ctx: PlanningContext, confirmed_only: bool = True) -> Projection:
     """The do-nothing case: current usable stock plus already-confirmed receipts."""
     return build_projection(
@@ -153,9 +174,15 @@ def generate_candidates(
             )
         )
 
-    # New purchase orders, one per eligible supplier. Two sizes are offered where
-    # they differ: the quantity that covers the need, and the recommendation under
-    # review -- so the recommendation is always scored rather than assumed.
+    # New purchase orders, one per eligible supplier. Three sizes are offered where
+    # they differ: the quantity that covers the need, the recommendation under
+    # review (so it is always scored rather than assumed), and -- when the full
+    # need is unaffordable -- the largest quantity the budget actually permits.
+    #
+    # That last one matters: without it, a budget ceiling makes the agent look at
+    # an all-or-nothing choice and conclude nothing can be done, when buying what
+    # is affordable would still prevent most of the shortage. A partial mitigation
+    # is a legitimate answer, provided its residual gap is reported honestly.
     for quote in ctx.quotes:
         if not quote.eligible:
             continue
@@ -163,6 +190,10 @@ def generate_candidates(
         wanted = {round_to_pack(need, quote)}
         if recommended_qty:
             wanted.add(round_to_pack(recommended_qty, quote))
+
+        affordable = affordable_quantity(ctx, quote)
+        if affordable > 0:
+            wanted.add(affordable)
 
         for qty in sorted(q for q in wanted if q > 0):
             out.append(

@@ -189,9 +189,20 @@ class OpenOrder:
 
     @property
     def outstanding_qty(self) -> int:
-        """Units still owed by the supplier: neither received nor cancelled."""
-        base = self.confirmed_qty or self.requested_qty
-        return max(0, base - self.received_qty - self.cancelled_qty)
+        """Units still owed by the supplier.
+
+        Convention: ``confirmed_qty`` is the *net* quantity the supplier has
+        committed to and already excludes anything cancelled. Subtracting
+        ``cancelled_qty`` from it again would double-count the shortfall and
+        understate incoming supply -- which in turn overstates the shortage and
+        drives an unnecessary second order.
+
+        Only when there is no confirmation does the requested quantity apply, and
+        there cancellations do still need netting out.
+        """
+        if self.confirmed_qty > 0:
+            return max(0, self.confirmed_qty - self.received_qty)
+        return max(0, self.requested_qty - self.received_qty - self.cancelled_qty)
 
     def is_overdue(self, today: date) -> bool:
         due = self.confirmed_date or self.requested_date

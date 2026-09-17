@@ -4,11 +4,31 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-load_dotenv()
+# Project root is two levels up from backend/app/config.py.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _resolve_sqlite_path(url: str) -> str:
+    """Anchor a relative SQLite path to the project root.
+
+    Without this the database file lands wherever the process happened to start,
+    so `pytest` from the repo root and `uvicorn` from backend/ would quietly use
+    two different databases.
+    """
+    prefix = "sqlite:///"
+    if not url.startswith(prefix):
+        return url
+    raw = url[len(prefix):]
+    if raw.startswith("/") or raw == ":memory:":
+        return url
+    return f"{prefix}{(PROJECT_ROOT / raw).resolve()}"
 
 
 class Settings(BaseModel):
@@ -35,7 +55,9 @@ def get_settings() -> Settings:
         ai_model=os.getenv("AI_MODEL", "gemini-3.6-flash"),
         gemini_api_key=os.getenv("GEMINI_API_KEY") or None,
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY") or None,
-        database_url=os.getenv("DATABASE_URL", "sqlite:///./purchasing.db"),
+        database_url=_resolve_sqlite_path(
+            os.getenv("DATABASE_URL", "sqlite:///./purchasing.db")
+        ),
         autonomy_spend_limit_minor=int(os.getenv("AUTONOMY_SPEND_LIMIT_MINOR", "200000")),
         autonomy_fee_limit_minor=int(os.getenv("AUTONOMY_FEE_LIMIT_MINOR", "25000")),
         max_tool_calls=int(os.getenv("MAX_TOOL_CALLS", "12")),

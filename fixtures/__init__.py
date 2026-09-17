@@ -169,7 +169,11 @@ F1 = {
         _po("PO-501", _F1_SKU, _F1_NODE, "SUP-A", requested_qty=2000, confirmed_qty=2000,
             unit_price_minor=1500, confirmed_offset=14),
     ],
-    "budgets": [_budget(_F1_NODE, limit_minor=900_000)],
+    # $10,000. Tuned so the recommended 800 units ($12,000) is genuinely
+    # unaffordable, while the 600-unit follow-up after a partial confirmation
+    # ($9,000 + the $450 expedite fee already committed) still fits -- so the
+    # feedback loop has a real second lever rather than dead-ending.
+    "budgets": [_budget(_F1_NODE, limit_minor=1_000_000)],
     "capacity_projections": _capacity(_F1_NODE, capacity_m3=200.0, occupied_m3=20.0),
     "case": _case(
         "CASE-F1", "F1", _F1_SKU, _F1_NODE, "recommendation",
@@ -372,7 +376,7 @@ F5 = {
         _po("PO-505", _F5_SKU, _F5_NODE, "SUP-A", requested_qty=2000, confirmed_qty=2000,
             unit_price_minor=1500, confirmed_offset=14),
     ],
-    "budgets": [_budget(_F5_NODE, limit_minor=900_000)],
+    "budgets": [_budget(_F5_NODE, limit_minor=1_000_000)],
     "capacity_projections": _capacity(_F5_NODE, capacity_m3=200.0, occupied_m3=20.0),
     "case": _case(
         "CASE-F5", "F5", _F5_SKU, _F5_NODE, "recommendation",
