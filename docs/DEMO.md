@@ -87,6 +87,16 @@ Show the **proposal**:
 
 Click **Approve**.
 
+If you also show a low-risk case (F2 or F3), the same gate reaches the opposite
+conclusion and the plan executes without you. Point at the green **"Authorized
+automatically under delegated authority"** panel before anyone reads it as the agent
+doing as it pleased:
+
+> "Nothing here was skipped. The same gate ran and granted authority, because the
+> spend is inside the limit and no demand is left unserved — it says so, with the
+> numbers. The gate decision is in the audit log, and the action is still validated
+> independently afterwards. Autonomy is a policy outcome, not the absence of one." 
+
 ## 5 · The feedback loop — the important part (90s)
 
 The page refreshes into the **Verdict** panel.

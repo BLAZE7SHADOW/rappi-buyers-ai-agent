@@ -50,6 +50,11 @@ written down is a different thing from one that is not.
   source, explains the business question for that call, and may skip, repeat, or add
   checks. The committed recordings are samples and several inspect broad evidence;
   they should not be interpreted as a hard-coded workflow.
+- **An autonomous action cannot be declined.** Approval and decline apply to a plan
+  waiting on a buyer. By the time a delegated-authority plan is visible it has already
+  executed, so there is no undo: reversing it would need a cancellation capability the
+  agent deliberately does not have. The controls are the autonomy limits themselves,
+  which decide what may execute unattended in the first place.
 - **Results are one sample.** Model behaviour varies between runs. The committed
   recordings are the specific runs the report describes.
 - **The tool budget is 12 calls and the replan budget is 2.** Both are demo values.

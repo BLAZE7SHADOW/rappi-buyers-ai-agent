@@ -205,9 +205,10 @@ refused with an explanation instead of looping. Running out of budget produces a
 
 After the case context is loaded, there is no fixed evidence checklist. The model
 chooses the next tool from the trigger and the previous result, supplies a short
-buyer-facing reason for that choice, and may skip, repeat, or add checks. The case
-page renders this actual path as it happens; it does not display planned steps that
-the agent never chose.
+buyer-facing reason for that choice, and may skip, repeat, or add checks. That reason
+is enforced at the tool layer, not merely scored afterwards: an evidence or simulation
+call without one is refused and returns no data. The case page renders this actual
+path as it happens; it does not display planned steps that the agent never chose.
 
 ## How decisions are made
 
