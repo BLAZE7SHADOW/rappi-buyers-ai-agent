@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from conftest import make_case  # noqa: F401
@@ -104,3 +106,35 @@ def test_plain_text_turn_gets_one_bounded_chance_to_finish(db):
 
     assert result["outcome"] == "proposed"
     assert result["tool_calls"] == 1
+
+
+def test_evidence_without_a_stated_reason_is_refused(db):
+    from app.agent.loop import run_case
+    from app.agent.providers import ToolCall, Turn
+    from app.db import schema as s
+    from app.db.engine import transaction
+    from sqlalchemy import select
+
+    case_id = make_case()
+    provider = FakeProvider([
+        Turn(tool_calls=[ToolCall("get_inventory", {})]),
+        Turn(tool_calls=[ToolCall("get_inventory", {"reason": "Confirm how much stock is sellable."})]),
+        Turn(tool_calls=[ToolCall("propose_plan", {
+            "disposition": "reject", "action_type": "keep_plan",
+            "action_args": {}, "rationale": "Existing supply is sufficient.",
+        })]),
+    ])
+
+    run_case(case_id, provider=provider)
+
+    with transaction() as conn:
+        results = conn.execute(select(s.case_events).where(
+            s.case_events.c.case_id == case_id,
+            s.case_events.c.kind == "observation",
+        ).order_by(s.case_events.c.seq)).mappings().all()
+
+    first = json.loads(results[0]["payload_json"])["result"]
+    assert first["error"] == "MISSING_REASON"
+    # The refusal is total: no evidence is returned without a stated purpose.
+    assert "usable" not in first
+    assert json.loads(results[1]["payload_json"])["result"]["usable"] == 1000

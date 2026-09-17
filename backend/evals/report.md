@@ -1,6 +1,6 @@
 # Agent Evaluation Report
 
-Generated: 2026-09-17T19:55:31
+Generated: 2026-09-17T20:08:05
 
 Columns are the assignment's own evaluation questions. Assertions target outcomes and invariants, never exact wording or a fixed tool order; fixtures with more than one defensible plan are scored against an acceptable band.
 
@@ -39,7 +39,7 @@ Legend:
 
 ## Observations
 
-**Investigation is adaptive and auditable.** After the required case-context entry point, the runner does not prescribe a sequence. The model selects each source from the trigger and prior results, and Q2 fails if an evidence or simulation call does not record the buyer-facing business question it was chosen to answer. Broad evidence gathering is allowed when the decision needs it; it is an observed model choice rather than a fixed workflow.
+**Investigation is adaptive and auditable.** After the required case-context entry point, the runner does not prescribe a sequence. The model selects each source from the trigger and prior results, and the tool layer refuses an evidence or simulation call that does not state the buyer-facing business question it answers -- no data is returned at all -- which Q2 re-asserts. Broad evidence gathering is allowed when the decision needs it; it is an observed model choice rather than a fixed workflow.
 
 **Paths and decisions may differ without breaking the evaluation.** Assertions target necessary evidence and business outcomes rather than an exact trace, so a shorter or reordered investigation passes when it remains sufficient.
 
@@ -58,7 +58,7 @@ Legend:
 Case `CASE-F1` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed → replanned (proposed)` · 16 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'reject' matches expectation.
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'expedite_po'; 2 execution(s) across 2 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** Every executed action carries a verdict: PARTIAL, PASS.
@@ -69,7 +69,7 @@ Case `CASE-F1` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed
 Case `CASE-F2` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed` · 10 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'accept' matches expectation.
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'create_po'; 1 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
@@ -80,7 +80,7 @@ Case `CASE-F2` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed
 Case `CASE-F3` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed` · 9 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'modify', quantity 500 within [450, 600].
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'create_po'; 1 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
@@ -91,7 +91,7 @@ Case `CASE-F3` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed
 Case `CASE-F4` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed` · 9 tool calls
 
 - PASS — **Was the decision correct?** Proposed 600 units; naive extrapolation would imply roughly 3640 units of demand. Bounded the uplift.
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_demand_evidence; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_demand_evidence; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'create_po'; 1 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
@@ -102,7 +102,7 @@ Case `CASE-F4` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed
 Case `CASE-F5` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed` · 8 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'reject' matches expectation.
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'expedite_po'; 1 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** Every executed action carries a verdict: PASS.
@@ -113,7 +113,7 @@ Case `CASE-F5` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed
 Case `CASE-F6` · mode `replay` · model `gemini-3.6-flash` · outcome `proposed` · 8 tool calls
 
 - PASS — **Was the decision correct?** Disposition 'escalate' matches expectation.
-- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed.
+- PASS — **Did the agent obtain the necessary information?** Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered.
 - PASS — **Did it respect relevant constraints?** No executed action breached budget, capacity, MOQ or quote validity.
 - PASS — **Did it take the appropriate action?** Action 'none'; 0 execution(s) across 1 proposal(s), no duplicates.
 - PASS — **Did it validate the result?** No action executed and the case reached its terminal state.

@@ -198,10 +198,10 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
     missing = [t for t in required if t not in used]
     if missing:
         return Check(q, False, f"Never called: {', '.join(missing)}. Used: {sorted(used)}.")
-    reasoned_tools = {
-        "get_inventory", "get_demand_evidence", "get_open_orders",
-        "get_supplier_options", "get_constraints", "simulate_plan",
-    }
+    # The tool layer refuses these without a reason; asserting it here keeps the
+    # invariant visible in the report rather than trusting it silently.
+    from app.agent.schemas import REASONED_TOOLS as reasoned_tools
+
     unexplained = [
         e["payload"].get("tool") for e in st["events"]
         if e["kind"] == "tool_call"
@@ -217,7 +217,8 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
     return Check(
         q, True,
         f"Consulted {len(used)} distinct tools including {', '.join(required)}; "
-        "every selected evidence and simulation call recorded why it was needed.",
+        "every selected evidence and simulation call stated the business question "
+        "it answered.",
     )
 
 
@@ -485,10 +486,11 @@ def render_report(results: list[Result], started: datetime) -> str:
         "", "## Observations", "",
         "**Investigation is adaptive and auditable.** After the required case-context "
         "entry point, the runner does not prescribe a sequence. The model selects each "
-        "source from the trigger and prior results, and Q2 fails if an evidence or "
-        "simulation call does not record the buyer-facing business question it was "
-        "chosen to answer. Broad evidence gathering is allowed when the decision needs "
-        "it; it is an observed model choice rather than a fixed workflow.",
+        "source from the trigger and prior results, and the tool layer refuses an "
+        "evidence or simulation call that does not state the buyer-facing business "
+        "question it answers -- no data is returned at all -- which Q2 re-asserts. "
+        "Broad evidence gathering is allowed when the decision needs it; it is an "
+        "observed model choice rather than a fixed workflow.",
         "",
         "**Paths and decisions may differ without breaking the evaluation.** Assertions "
         "target necessary evidence and business outcomes rather than an exact trace, so "

@@ -25,7 +25,7 @@ from sqlalchemy import select
 
 from app.agent.prompts import SYSTEM_PROMPT, replan_prompt
 from app.agent.providers import Message, get_provider
-from app.agent.schemas import TOOL_SCHEMAS
+from app.agent.schemas import REASONED_TOOLS, TOOL_SCHEMAS
 from app.agent.tools import HANDLERS, TERMINAL_TOOLS, ToolError
 from app.config import get_settings
 from app.db import schema as s
@@ -261,6 +261,15 @@ def _invoke(case_id: str, name: str, args: dict, run_id: str) -> dict:
                      {"run_id": run_id, "tool": name, "args": args})
 
     try:
+        # The schema declares `reason` required on every evidence and simulation
+        # tool. Enforce that here rather than only noticing it afterwards in the
+        # evaluation, so an unexplained retrieval never returns data at all.
+        if name in REASONED_TOOLS and not str((args or {}).get("reason", "")).strip():
+            raise ToolError(
+                "MISSING_REASON",
+                f"{name} requires a `reason`: one short buyer-facing sentence naming "
+                f"the business question this call will answer. Call it again with one.",
+            )
         result = handler(case_id, args or {})
     except ToolError as exc:
         result = exc.to_dict()

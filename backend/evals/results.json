@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17T19:55:31.263865",
+  "generated": "2026-09-17T20:08:05.394095",
   "live": false,
   "results": [
     {
@@ -24,7 +24,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -74,7 +74,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -124,7 +124,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -174,7 +174,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_demand_evidence; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including get_demand_evidence; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -224,7 +224,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -274,7 +274,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed."
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call stated the business question it answered."
         },
         {
           "question": "Did it respect relevant constraints?",

@@ -179,12 +179,12 @@ TOOL_SCHEMAS: list[dict] = [
 
 # Evidence gathering is selected by the model at runtime. Requiring a concise
 # business question makes that choice auditable without exposing chain-of-thought.
-_REASONED_TOOLS = {
+REASONED_TOOLS = {
     "get_inventory", "get_demand_evidence", "get_open_orders",
     "get_supplier_options", "get_constraints", "simulate_plan",
 }
 for _tool in TOOL_SCHEMAS:
-    if _tool["name"] in _REASONED_TOOLS:
+    if _tool["name"] in REASONED_TOOLS:
         _tool["parameters"]["properties"]["reason"] = {
             "type": "string",
             "description": (
