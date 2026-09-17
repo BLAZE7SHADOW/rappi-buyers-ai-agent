@@ -161,6 +161,9 @@ cases = Table(
     Column("node_id", String, nullable=False),
     Column("trigger_type", String, nullable=False),
     Column("trigger_payload", Text, nullable=False, default="{}"),
+    # Provenance is persisted separately from the payload so the queue and audit
+    # trail never have to infer who raised a purchasing exception.
+    Column("signal_source", String, nullable=False, default="operational_system"),
     Column("title", String, nullable=False, default=""),
     Column("state", String, nullable=False, default="investigating"),
     Column("replan_count", Integer, nullable=False, default=0),
@@ -168,6 +171,7 @@ cases = Table(
     # Which mock-supplier behaviour this case's next action will encounter.
     Column("supplier_behavior", String, nullable=False, default="confirm_full"),
     Column("created_at", DateTime, server_default=func.now()),
+    Column("updated_at", DateTime, server_default=func.now(), onupdate=func.now()),
 )
 
 # Append-only. Powers the UI timeline, the audit trail, and the eval assertions.

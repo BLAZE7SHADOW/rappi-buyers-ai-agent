@@ -61,6 +61,11 @@ def append_event(
             payload_json=json.dumps(payload or {}, default=str),
         )
     )
+    # Keep a persisted queue-sorting/audit timestamp in sync with every case
+    # event, including notes that do not otherwise change workflow state.
+    conn.execute(
+        s.cases.update().where(s.cases.c.case_id == case_id).values(updated_at=func.now())
+    )
     return next_seq
 
 

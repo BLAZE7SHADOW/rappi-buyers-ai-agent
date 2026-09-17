@@ -136,9 +136,11 @@ def _capacity(node_id: str, capacity_m3: float, occupied_m3: float, horizon: int
 
 def _case(case_id: str, fixture_id: str, sku: str, node_id: str, trigger_type: str,
           trigger_payload: str, title: str, supplier_behavior: str) -> dict:
+    signal_source = "demand_monitor" if trigger_type == "demand_spike" else "replenishment_system"
     return {
         "case_id": case_id, "fixture_id": fixture_id, "sku": sku, "node_id": node_id,
-        "trigger_type": trigger_type, "trigger_payload": trigger_payload, "title": title,
+        "trigger_type": trigger_type, "trigger_payload": trigger_payload,
+        "signal_source": signal_source, "title": title,
         "state": "investigating", "replan_count": 0, "as_of_date": day(0),
         "supplier_behavior": supplier_behavior,
     }
@@ -152,8 +154,8 @@ _F1_SKU, _F1_NODE = "SKU-1001", "NODE-BOG-F1"
 
 F1 = {
     "fixture_id": "F1",
-    "products": [_product(_F1_SKU, "Headline Widget")],
-    "nodes": [_node(_F1_NODE)],
+    "products": [_product(_F1_SKU, "Sparkling Water 330ml · 12-pack")],
+    "nodes": [_node(_F1_NODE, name="Bogotá North Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F1_SKU, _F1_NODE, on_hand=1200, reserved=150, quarantine=50)],
     "demand_records": _flat_demand(_F1_SKU, _F1_NODE, units_per_day=100),
     "promotions": [],
@@ -178,7 +180,7 @@ F1 = {
     "case": _case(
         "CASE-F1", "F1", _F1_SKU, _F1_NODE, "recommendation",
         '{"recommended_qty": 800, "reason": "Reorder point breach"}',
-        "SKU-1001 @ NODE-BOG: system recommends 800 units", "confirm_partial",
+        "Sparkling Water · review 800-unit recommendation", "confirm_partial",
     ),
     "expected": {
         "baseline_unmet": 400,
@@ -205,8 +207,8 @@ _F2_SKU, _F2_NODE = "SKU-1002", "NODE-BOG-F2"
 
 F2 = {
     "fixture_id": "F2",
-    "products": [_product(_F2_SKU, "Accept Widget")],
-    "nodes": [_node(_F2_NODE)],
+    "products": [_product(_F2_SKU, "UHT Whole Milk 1L")],
+    "nodes": [_node(_F2_NODE, name="Bogotá Central Fulfillment Center")],
     # on_hand 430 - reserved 50 = usable 380
     "inventory_snapshots": [_inventory(_F2_SKU, _F2_NODE, on_hand=430, reserved=50)],
     "demand_records": _flat_demand(_F2_SKU, _F2_NODE, units_per_day=35),
@@ -222,7 +224,7 @@ F2 = {
     "case": _case(
         "CASE-F2", "F2", _F2_SKU, _F2_NODE, "recommendation",
         '{"recommended_qty": 800}',
-        "SKU-1002 @ NODE-BOG: system recommends 800 units", "confirm_full",
+        "UHT Whole Milk · review 800-unit recommendation", "confirm_full",
     ),
     "expected": {
         "baseline_unmet": 600,
@@ -246,8 +248,8 @@ _F3_SKU, _F3_NODE = "SKU-1003", "NODE-BOG-F3"
 
 F3 = {
     "fixture_id": "F3",
-    "products": [_product(_F3_SKU, "Modify Widget")],
-    "nodes": [_node(_F3_NODE)],
+    "products": [_product(_F3_SKU, "Frozen Blueberries 500g")],
+    "nodes": [_node(_F3_NODE, name="Bogotá Cold-chain Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F3_SKU, _F3_NODE, on_hand=176)],
     "demand_records": _flat_demand(_F3_SKU, _F3_NODE, units_per_day=17),
     "promotions": [],
@@ -264,7 +266,7 @@ F3 = {
     "case": _case(
         "CASE-F3", "F3", _F3_SKU, _F3_NODE, "recommendation",
         '{"recommended_qty": 800}',
-        "SKU-1003 @ NODE-BOG: system recommends 800 units", "confirm_full",
+        "Frozen Blueberries · capacity-constrained recommendation", "confirm_full",
     ),
     "expected": {
         "baseline_unmet": 300,
@@ -314,8 +316,8 @@ def _f4_demand_records() -> list[dict]:
 
 F4 = {
     "fixture_id": "F4",
-    "products": [_product(_F4_SKU, "Spike Widget")],
-    "nodes": [_node(_F4_NODE)],
+    "products": [_product(_F4_SKU, "Energy Drink 250ml")],
+    "nodes": [_node(_F4_NODE, name="Bogotá West Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F4_SKU, _F4_NODE, on_hand=1000)],
     "demand_records": _f4_demand_records(),
     "promotions": [{
@@ -334,7 +336,7 @@ F4 = {
     "case": _case(
         "CASE-F4", "F4", _F4_SKU, _F4_NODE, "demand_spike",
         '{"forecast_daily_units": 50, "note": "Recent sales are running well above forecast"}',
-        "SKU-1004 @ NODE-BOG: demand looks like it has spiked", "confirm_full",
+        "Energy Drink · promotion demand spike", "confirm_full",
     ),
     "expected": {
         "censored_day_count": 3,
@@ -359,8 +361,8 @@ _F5_SKU, _F5_NODE = "SKU-1005", "NODE-BOG-F5"
 
 F5 = {
     "fixture_id": "F5",
-    "products": [_product(_F5_SKU, "Recovery Widget")],
-    "nodes": [_node(_F5_NODE)],
+    "products": [_product(_F5_SKU, "Baby Diapers Size M · 40-pack")],
+    "nodes": [_node(_F5_NODE, name="Bogotá South Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F5_SKU, _F5_NODE, on_hand=1200, reserved=150, quarantine=50)],
     "demand_records": _flat_demand(_F5_SKU, _F5_NODE, units_per_day=100),
     "promotions": [],
@@ -381,7 +383,7 @@ F5 = {
     "case": _case(
         "CASE-F5", "F5", _F5_SKU, _F5_NODE, "recommendation",
         '{"recommended_qty": 800, "reason": "Reorder point breach"}',
-        "SKU-1005 @ NODE-BOG: recovery after a supplier timeout", "timeout_after_success",
+        "Baby Diapers · supplier timeout recovery", "timeout_after_success",
     ),
     "expected": {
         # Same engine outcome as F1 -- this fixture is about the retry path, not
@@ -411,8 +413,8 @@ _F6_SKU, _F6_NODE = "SKU-1006", "NODE-BOG-F6"
 
 F6 = {
     "fixture_id": "F6",
-    "products": [_product(_F6_SKU, "Escalate Widget")],
-    "nodes": [_node(_F6_NODE)],
+    "products": [_product(_F6_SKU, "Basmati Rice 5kg")],
+    "nodes": [_node(_F6_NODE, name="Bogotá East Fulfillment Center")],
     "inventory_snapshots": [_inventory(_F6_SKU, _F6_NODE, on_hand=800)],
     "demand_records": _flat_demand(_F6_SKU, _F6_NODE, units_per_day=50),
     "promotions": [],
@@ -427,7 +429,7 @@ F6 = {
     "case": _case(
         "CASE-F6", "F6", _F6_SKU, _F6_NODE, "recommendation",
         '{"recommended_qty": 600}',
-        "SKU-1006 @ NODE-BOG: shortfall with zero budget available", "confirm_full",
+        "Basmati Rice · shortfall with no available budget", "confirm_full",
     ),
     "expected": {
         "baseline_unmet": 600,

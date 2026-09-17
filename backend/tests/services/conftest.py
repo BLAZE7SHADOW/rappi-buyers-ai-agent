@@ -98,6 +98,7 @@ def make_case(
         conn.execute(s.cases.insert().values(
             case_id=case_id, fixture_id="TEST", sku=sku, node_id=node_id,
             trigger_type="recommendation", trigger_payload='{"recommended_qty": 800}',
+            signal_source="replenishment_system",
             title="Test case", state="investigating", replan_count=0,
             as_of_date=START, supplier_behavior=behavior))
     return case_id
