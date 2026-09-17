@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-17T16:49:58.837841",
+  "generated": "2026-09-17T19:55:31.263865",
   "live": false,
   "results": [
     {
@@ -9,7 +9,7 @@
       "provider": "replay:gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed \u2192 replanned (proposed)",
-      "tool_calls": 18,
+      "tool_calls": 16,
       "replanned": true,
       "passed": true,
       "error": "",
@@ -24,7 +24,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan."
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -74,7 +74,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including simulate_plan."
+          "detail": "Consulted 8 distinct tools including simulate_plan; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -124,7 +124,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan."
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -159,7 +159,7 @@
       "provider": "replay:gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 8,
+      "tool_calls": 9,
       "replanned": false,
       "passed": true,
       "error": "",
@@ -174,7 +174,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_demand_evidence."
+          "detail": "Consulted 8 distinct tools including get_demand_evidence; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -209,7 +209,7 @@
       "provider": "replay:gemini",
       "model": "gemini-3.6-flash",
       "outcome": "proposed",
-      "tool_calls": 9,
+      "tool_calls": 8,
       "replanned": false,
       "passed": true,
       "error": "",
@@ -224,7 +224,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan."
+          "detail": "Consulted 8 distinct tools including get_open_orders, simulate_plan; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -248,7 +248,7 @@
           "question": "What happens when the initial action does not work?",
           "passed": true,
           "applicable": true,
-          "detail": "After the timeout and recovery, 1 purchase order(s) exist (expected 1). No duplicate created."
+          "detail": "After timeout recovery, one supplier record, one action, and 1 purchase order exist; reconciliation is in the audit trail."
         }
       ]
     },
@@ -274,7 +274,7 @@
           "question": "Did the agent obtain the necessary information?",
           "passed": true,
           "applicable": true,
-          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan."
+          "detail": "Consulted 8 distinct tools including get_constraints, simulate_plan; every selected evidence and simulation call recorded why it was needed."
         },
         {
           "question": "Did it respect relevant constraints?",
@@ -292,13 +292,13 @@
           "question": "Did it validate the result?",
           "passed": true,
           "applicable": true,
-          "detail": "No action executed, so no outcome required validation."
+          "detail": "No action executed and the case reached its terminal state."
         },
         {
           "question": "What happens when the initial action does not work?",
           "passed": true,
-          "applicable": false,
-          "detail": "Not exercised: the action succeeded and the case resolved ('authorized'). Failure handling is covered by F1 and F5."
+          "applicable": true,
+          "detail": "No feasible option existed; escalated rather than acting."
         }
       ]
     }

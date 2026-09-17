@@ -16,7 +16,9 @@
       "tool_calls": [
         {
           "name": "get_inventory",
-          "args": {}
+          "args": {
+            "reason": "Check current inventory levels for SKU-1003 at NODE-BOG-F3 to determine available stock and usable units."
+          }
         }
       ]
     },
@@ -25,7 +27,9 @@
       "tool_calls": [
         {
           "name": "get_open_orders",
-          "args": {}
+          "args": {
+            "reason": "Check if there are any existing open purchase orders for SKU-1003 that could cover upcoming demand or be expedited."
+          }
         }
       ]
     },
@@ -34,7 +38,9 @@
       "tool_calls": [
         {
           "name": "get_supplier_options",
-          "args": {}
+          "args": {
+            "reason": "Retrieve available supplier options, pricing, lead times, and MOQs for SKU-1003."
+          }
         }
       ]
     },
@@ -43,7 +49,9 @@
       "tool_calls": [
         {
           "name": "get_constraints",
-          "args": {}
+          "args": {
+            "reason": "Check available budget, storage space, and autonomy limits for ordering SKU-1003."
+          }
         }
       ]
     },
@@ -52,7 +60,10 @@
       "tool_calls": [
         {
           "name": "get_demand_evidence",
-          "args": {}
+          "args": {
+            "lookback_days": 14,
+            "reason": "Retrieve demand forecast and recent sales history to understand daily demand for SKU-1003."
+          }
         }
       ]
     },
@@ -61,7 +72,9 @@
       "tool_calls": [
         {
           "name": "simulate_plan",
-          "args": {}
+          "args": {
+            "reason": "Simulate all available purchasing candidates to project demand, stockouts, costs, and policy compliance."
+          }
         }
       ]
     },
@@ -72,9 +85,10 @@
           "name": "simulate_plan",
           "args": {
             "action_type": "create_po",
-            "supplier_id": "SUP-A",
             "qty": 500,
-            "expected_receipt_date": "2026-09-24"
+            "expected_receipt_date": "2026-09-24",
+            "reason": "Verify simulation for ordering 500 units of SKU-1003 from SUP-A.",
+            "supplier_id": "SUP-A"
           }
         }
       ]
@@ -85,30 +99,30 @@
         {
           "name": "propose_plan",
           "args": {
-            "important_factors": [
-              "Storage capacity limit of 200.00 m\u00b3 (max 656 units)",
-              "Policy limit of maximum 12 days cover (max 204 units closing inventory)",
-              "Projected baseline stockout on 2026-09-27 with 300 units of unmet demand",
-              "Supplier SUP-A lead time of 7 days (arrival on 2026-09-24) at $13.00 per unit"
-            ],
-            "action_type": "create_po",
-            "assumptions": [
-              "Demand will materialize according to the forecast of 17 units/day over the 28-day planning horizon."
-            ],
-            "disposition": "modify",
-            "rationale": "The recommendation to buy 800 units must be modified to 500 units. Ordering 800 units is infeasible because peak occupancy would reach 204.00 m\u00b3, breaching the node storage capacity limit of 200.00 m\u00b3, and closing inventory would be 500 units (29.4 days of cover), violating the 12-day max cover policy (204 units limit).\n\nUsable stock is currently 176 units. Based on a forecast of 17 units/day over 28 days (476 units total), a stockout occurs on 2026-09-27, resulting in 300 units of unmet demand. Ordering 500 units from SUP-A at $13.00/unit ($6,500.00 total) arriving on 2026-09-24 completely eliminates the 300 units of unmet demand, respects storage capacity (peak occupancy of 198.00 m\u00b3 <= 200.00 m\u00b3), and satisfies policy limits (closing inventory of 200 units = 11.8 days of cover <= 12 days).",
-            "evidence_refs": [
-              "get_case_context",
-              "get_inventory",
-              "get_constraints",
-              "get_supplier_options",
-              "simulate_plan"
-            ],
             "action_args": {
               "qty": 500,
               "supplier_id": "SUP-A",
               "expected_receipt_date": "2026-09-24"
-            }
+            },
+            "important_factors": [
+              "Recommended quantity of 800 units exceeds storage capacity (204.00 m\u00b3 peak vs 200.00 m\u00b3 max) and excess cover limits (29.4 days vs 12-day limit).",
+              "Baseline projected stockout starts on 2026-09-27 with 300 unmet demand units across the 28-day planning horizon.",
+              "An order of 500 units from SUP-A arriving 2026-09-24 completely eliminates unmet demand while keeping peak occupancy at 198.00 m\u00b3 and closing cover at 11.8 days.",
+              "Order cost of $6,500.00 exceeds the $2,000.00 autonomy spend limit, requiring buyer approval."
+            ],
+            "disposition": "modify",
+            "assumptions": [],
+            "action_type": "create_po",
+            "evidence_refs": [
+              "get_case_context",
+              "get_inventory",
+              "get_open_orders",
+              "get_supplier_options",
+              "get_constraints",
+              "get_demand_evidence",
+              "simulate_plan"
+            ],
+            "rationale": "The trigger recommended buying 800 units of SKU-1003. Simulation shows that ordering 800 units is infeasible because it violates storage capacity (peak occupancy 204.00 m\u00b3 vs 200.00 m\u00b3 limit) and the excess cover limit (29.4 days vs 12 days). Current usable inventory is 176 units against a 28-day demand forecast of 476 units (17 units/day). Without new supply, stockout begins on 2026-09-27 resulting in 300 unmet units. Supplier SUP-A offers a 7-day lead time at $13.00/unit, MOQ 250, pack size 50. Ordering 500 units arriving 2026-09-24 reduces unmet demand to 0 units, keeps peak occupancy within capacity at 198.00 m\u00b3, and leaves closing inventory at 200 units (11.8 days of cover, within policy). Total spend is $6,500.00, which exceeds the $2,000.00 autonomy limit and requires buyer approval."
           }
         }
       ]

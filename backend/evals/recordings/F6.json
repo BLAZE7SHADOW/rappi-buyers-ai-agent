@@ -16,27 +16,65 @@
       "tool_calls": [
         {
           "name": "get_inventory",
-          "args": {}
-        },
+          "args": {
+            "reason": "Check current inventory status for SKU-1006 at NODE-BOG-F6 to determine usable stock."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_open_orders",
-          "args": {}
-        },
+          "args": {
+            "reason": "Check if there are any pending purchase orders for SKU-1006."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_demand_evidence",
-          "args": {}
-        },
+          "args": {
+            "reason": "Check recent sales and forecast demand for SKU-1006 to understand demand pattern and potential stockout risks.",
+            "lookback_days": 14
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_supplier_options",
-          "args": {}
-        },
+          "args": {
+            "reason": "Check available suppliers, prices, lead times, and MOQs for SKU-1006."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "get_constraints",
-          "args": {}
-        },
+          "args": {
+            "reason": "Check available budget, dated storage headroom, and autonomy limits."
+          }
+        }
+      ]
+    },
+    {
+      "text": "",
+      "tool_calls": [
         {
           "name": "simulate_plan",
-          "args": {}
+          "args": {
+            "reason": "Evaluate candidate plans including baseline keep_plan and purchase recommendations to see demand coverage, shortages, and feasibility."
+          }
         }
       ]
     },
@@ -46,12 +84,13 @@
         {
           "name": "propose_plan",
           "args": {
-            "action_type": "none",
-            "rationale": "The baseline projection shows 1,400 units of total forecast demand against 800 units of usable on-hand inventory for SKU-1006 at NODE-BOG-F6, resulting in a 600-unit shortage starting on 2026-10-03 and 16 days below safety stock. While ordering 600 units from SUP-A at $10.00/unit would eliminate the unmet demand, the order cost of $6,000.00 (or $8,000.00 for 800 units to maintain safety stock) is infeasible due to an available budget of $0.00, which is a hard constraint. Keeping the current plan leaves 600 units of demand unserved. Because no feasible plan resolves the shortage, the case is escalated for a budget increase of at least $6,000.00 (or $8,000.00 to also cover safety stock).",
-            "assumptions": [
-              "Baseline daily forecast of 50 units/day across 28 days remains the active demand projection as modeled in simulate_plan."
-            ],
             "disposition": "escalate",
+            "important_factors": [
+              "Available budget is $0.00, blocking purchase orders due to hard budget constraints",
+              "Baseline forecast of 1,400 units against 800 usable inventory projects 600 unmet units starting 2026-10-03",
+              "Observed daily sales over recent 14 days average 0 units/day compared to 50 units/day forecast"
+            ],
+            "rationale": "The recommendation to buy 600 units cannot be executed because available budget is $0.00, making purchase orders infeasible under hard budget constraints. With usable inventory of 800 units, zero open orders, and a 28-day forecast of 1,400 units (50 units/day), baseline simulation projects a first stockout date of 2026-10-03, 16 days below safety stock, and total unmet demand of 600 units. Creating a purchase order for 600 units from SUP-A would cost $6,000.00 ($10.00/unit), which exceeds the available budget of $0.00 by $6,000.00. Furthermore, demand evidence shows observed sales averaged 0 units/day over the past 14 days, indicating the 50/day forecast overstates actual demand. Escalation is required to request a budget allocation of $6,000.00 (or $8,000.00 to end with safety stock) and to review the demand forecast.",
             "evidence_refs": [
               "get_case_context",
               "get_inventory",
@@ -61,13 +100,8 @@
               "get_constraints",
               "simulate_plan"
             ],
-            "important_factors": [
-              "Projected stockout of 600 units starting 2026-10-03 with 16 days below safety stock",
-              "Current usable inventory is 800 units with 0 open purchase orders",
-              "Available budget is $0.00, which is a hard constraint",
-              "Ordering 600 units from SUP-A costs $6,000.00, which is infeasible due to $0.00 budget",
-              "No feasible action exists to eliminate unmet demand"
-            ]
+            "assumptions": [],
+            "action_type": "none"
           }
         }
       ]

@@ -132,12 +132,14 @@ def _state(case_id: str) -> dict:
         orders = conn.execute(
             select(s.purchase_orders).where(s.purchase_orders.c.sku == case["sku"])
         ).mappings().all()
+        supplier_records = conn.execute(select(s.supplier_ledger)).mappings().all()
         events = load_events(conn, case_id)
     return {
         "case": case,
         "proposals": [dict(p) for p in proposals],
         "actions": [dict(a) for a in actions],
         "orders": [dict(o) for o in orders],
+        "supplier_records": [dict(r) for r in supplier_records],
         "events": events,
         "tools_used": [e["payload"].get("tool") for e in events if e["kind"] == "tool_call"],
     }
@@ -196,7 +198,27 @@ def q2_obtained_information(fixture_id: str, expected: dict, st: dict) -> Check:
     missing = [t for t in required if t not in used]
     if missing:
         return Check(q, False, f"Never called: {', '.join(missing)}. Used: {sorted(used)}.")
-    return Check(q, True, f"Consulted {len(used)} distinct tools including {', '.join(required)}.")
+    reasoned_tools = {
+        "get_inventory", "get_demand_evidence", "get_open_orders",
+        "get_supplier_options", "get_constraints", "simulate_plan",
+    }
+    unexplained = [
+        e["payload"].get("tool") for e in st["events"]
+        if e["kind"] == "tool_call"
+        and e["payload"].get("tool") in reasoned_tools
+        and not str(e["payload"].get("args", {}).get("reason", "")).strip()
+    ]
+    if unexplained:
+        return Check(
+            q, False,
+            "Evidence was retrieved without a buyer-facing reason: "
+            + ", ".join(unexplained),
+        )
+    return Check(
+        q, True,
+        f"Consulted {len(used)} distinct tools including {', '.join(required)}; "
+        "every selected evidence and simulation call recorded why it was needed.",
+    )
 
 
 def q3_respected_constraints(fixture_id: str, expected: dict, st: dict) -> Check:
@@ -233,6 +255,10 @@ def q4_appropriate_action(fixture_id: str, expected: dict, st: dict) -> Check:
     # be read as expecting nothing to happen.
     if want in ("none", "keep_plan") and completed:
         return Check(q, False, f"Expected no purchasing action, but {len(completed)} ran.")
+    if want not in (None, "none", "keep_plan"):
+        matching = [a for a in completed if a["action_type"] == want]
+        if not matching:
+            return Check(q, False, f"Expected a completed '{want}' action; none completed.")
     # One execution per proposal. More than that means a duplicate, which is the
     # failure this count exists to catch.
     if len(completed) > len(st["proposals"]):
@@ -251,7 +277,14 @@ def q5_validated_result(fixture_id: str, expected: dict, st: dict) -> Check:
         # Nothing executed, so there is nothing to validate. That is correct for
         # reject/escalate outcomes, not a gap.
         if expected.get("action_type") in ("none", "keep_plan", None):
-            return Check(q, True, "No action executed, so no outcome required validation.")
+            expected_state = "escalated" if expected.get("action_type") == "none" else "resolved"
+            if expected.get("action_type") and st["case"]["state"] != expected_state:
+                return Check(
+                    q, False,
+                    f"No action was required, but the case stopped in '{st['case']['state']}' "
+                    f"instead of '{expected_state}'.",
+                )
+            return Check(q, True, "No action executed and the case reached its terminal state.")
         return Check(q, False, "An action was expected but none executed.")
     unvalidated = [a for a in completed if not a["verdict_json"]]
     if unvalidated:
@@ -265,14 +298,21 @@ def q6_handles_failure(fixture_id: str, expected: dict, st: dict) -> Check:
     case = st["case"]
 
     if fixture_id == "F5":
-        # Lost response after a successful commit: exactly one order must exist.
+        # Lost response after a successful commit: one supplier commitment, one
+        # local action, one order, and visible reconciliation evidence.
         count = len(st["orders"])
         want = expected.get("expected_po_count_after_retry", 1)
-        ok = count == want
+        recovered = any(e["label"] == "Recovered lost response via idempotency key"
+                        for e in st["events"])
+        ok = (count == want and len(st["supplier_records"]) == 1
+              and len(st["actions"]) == 1 and recovered)
         return Check(q, ok,
-                     f"After the timeout and recovery, {count} purchase order(s) exist "
-                     f"(expected {want}). No duplicate created." if ok
-                     else f"{count} orders exist; expected {want}.")
+                     ("After timeout recovery, one supplier record, one action, and "
+                      f"{count} purchase order exist; reconciliation is in the audit trail.")
+                     if ok else
+                     (f"Recovery evidence incomplete: orders={count}, "
+                      f"supplier_records={len(st['supplier_records'])}, "
+                      f"actions={len(st['actions'])}, audit_event={recovered}."))
 
     partials = [json.loads(a["verdict_json"])["verdict"] for a in st["actions"]
                 if a["verdict_json"]]
@@ -295,8 +335,9 @@ def q6_handles_failure(fixture_id: str, expected: dict, st: dict) -> Check:
                          "The replan repeated the original action unchanged, which "
                          "would repeat the failure.")
 
-        if case["state"] == "reopened":
-            return Check(q, False, "Case is still reopened; the replan did not conclude.")
+        if case["state"] not in ("resolved", "escalated"):
+            return Check(q, False,
+                         f"The replan stopped in non-terminal state '{case['state']}'.")
 
         return Check(q, True,
                      f"Verdict {partials} reopened the case; the agent replanned from "
@@ -396,16 +437,11 @@ def _auto_approve(case_id: str) -> None:
     for proposal_id, needs_approval, action_type in ids:
         if action_type in ("none", "keep_plan"):
             continue
-        try:
-            if needs_approval:
-                approve(case_id, proposal_id, approver="eval-harness")
-            else:
-                from app.services.proposals import authorize_and_execute
-                authorize_and_execute(case_id, proposal_id)
-        except Exception:
-            # A refusal here is often the correct behaviour (blocked plan, stale
-            # state). The checks below judge the outcome; this only drives it.
-            pass
+        if needs_approval:
+            approve(case_id, proposal_id, approver="eval-harness")
+        else:
+            from app.services.proposals import authorize_and_execute
+            authorize_and_execute(case_id, proposal_id)
 
 
 def render_report(results: list[Result], started: datetime) -> str:
@@ -447,23 +483,21 @@ def render_report(results: list[Result], started: datetime) -> str:
 
     lines += [
         "", "## Observations", "",
-        "**Investigation paths are similar across fixtures.** The agent gathers all six "
-        "evidence tools in roughly the same order every time rather than branching on "
-        "what it finds. With a small, cheap evidence surface that is defensible -- there "
-        "is little cost to reading everything -- but it means adaptivity shows up in the "
-        "simulate-and-decide phase rather than in evidence gathering. Fixtures needing a "
-        "specific comparison (F3, F4, F5, F6) issue a second targeted `simulate_plan` "
-        "after the broad one; fixtures where the first answer is clear do not. "
-        "Demonstrating branching during evidence gathering would need a larger or more "
-        "expensive tool surface than this domain currently has.",
+        "**Investigation is adaptive and auditable.** After the required case-context "
+        "entry point, the runner does not prescribe a sequence. The model selects each "
+        "source from the trigger and prior results, and Q2 fails if an evidence or "
+        "simulation call does not record the buyer-facing business question it was "
+        "chosen to answer. Broad evidence gathering is allowed when the decision needs "
+        "it; it is an observed model choice rather than a fixed workflow.",
         "",
-        "**The decisions do differ, which is the part that matters.** The same tool "
-        "sweep produces reject-and-expedite, accept, modify-down, promotion-bounded "
-        "buying, and escalate across the six fixtures.",
+        "**Paths and decisions may differ without breaking the evaluation.** Assertions "
+        "target necessary evidence and business outcomes rather than an exact trace, so "
+        "a shorter or reordered investigation passes when it remains sufficient.",
         "",
-        "**The feedback loop is exercised with the live model, not simulated.** F1 runs "
-        "the agent, executes, validates, and -- because the supplier short-ships -- runs "
-        "the agent a second time against the changed state. Q6 asserts that the second "
+        "**The feedback loop was recorded from a live model and is replayed through the real "
+        "workflow.** F1 runs the recorded agent turns, executes, validates, and -- because "
+        "the supplier short-ships -- runs the second recorded agent pass against the changed "
+        "state. Q6 asserts that the second "
         "proposal differs from the first and that the case actually concludes; a replan "
         "that repeated the failed action, or left the case stuck in `reopened`, fails.",
         "",
