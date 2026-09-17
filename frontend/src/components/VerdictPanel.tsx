@@ -1,5 +1,5 @@
 import { VerdictBadge } from './Badges';
-import { titleCase } from '../format';
+import { money, titleCase } from '../format';
 import type { ActionItem, Verdict } from '../types';
 
 export function VerdictPanel({ actions }: { actions: ActionItem[] }) {
@@ -101,14 +101,39 @@ function KVBlock({ title, data, highlight }: { title: string; data: Record<strin
         <dl className="space-y-0.5 text-sm">
           {entries.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-2">
-              <dt className="text-gray-500">{titleCase(k)}</dt>
-              <dd className={`font-mono ${highlight ? 'text-amber-300' : 'text-gray-200'}`}>{String(v)}</dd>
+              <dt className="text-gray-500">{formatKey(k)}</dt>
+              <dd className={`font-mono ${highlight ? 'text-amber-300' : 'text-gray-200'}`}>
+                {formatValue(k, v, highlight)}
+              </dd>
             </div>
           ))}
         </dl>
       )}
     </div>
   );
+}
+
+/** Fields ending in `_minor` are integer cents and must never be shown raw. */
+function isMoneyKey(key: string): boolean {
+  return key.endsWith('_minor');
+}
+
+function formatKey(key: string): string {
+  return titleCase(isMoneyKey(key) ? key.replace(/_minor$/, '') : key);
+}
+
+function formatValue(key: string, value: unknown, signed = false): string {
+  if (value === null || value === undefined) return '—';
+  if (isMoneyKey(key) && typeof value === 'number') {
+    // Deltas read better with an explicit sign: -$800.00 beats $-800.00.
+    return signed && value !== 0
+      ? `${value < 0 ? '−' : '+'}${money(Math.abs(value))}`
+      : money(value);
+  }
+  if (signed && typeof value === 'number' && value !== 0) {
+    return `${value < 0 ? '−' : '+'}${Math.abs(value).toLocaleString('en-US')}`;
+  }
+  return String(value);
 }
 
 function CheckGroup({ title, checks }: { title: string; checks: { name: string; passed: boolean; detail: string }[] }) {
