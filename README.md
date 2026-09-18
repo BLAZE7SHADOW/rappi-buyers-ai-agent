@@ -117,7 +117,7 @@ an incoming recommendation against source-system facts, not validating data the
 requester chose to make the recommendation look feasible.
 
 A buyer-created case can run against the live model. Recorded replay is intentionally
-limited to the six fixed evaluation fixtures because those transcripts are tied to
+limited to the eight fixed evaluation fixtures because those transcripts are tied to
 known evidence and expected outcomes.
 
 ## Setup
@@ -159,7 +159,7 @@ cd frontend && npm ci && npm run dev
 ### Tests and evaluations
 
 ```bash
-.venv/bin/python -m pytest backend/tests -q         # 69 domain, service, loop + API tests
+.venv/bin/python -m pytest backend/tests -q         # 87 domain, service, loop + API tests
 
 cd frontend
 npm test && npm run lint && npm run build            # component tests + static checks
@@ -265,7 +265,7 @@ Supplier confirmation and physical receipt are different milestones.
 | **S4** constraint blocks the purchase | F1 (budget blocks the 800) · F6 (nothing feasible) |
 | What information the agent needs | Tools 1–6 |
 | What tools / APIs | 9 tools + mock supplier API |
-| What data should exist | 18 tables, 6 fixtures |
+| What data should exist | 18 tables, 8 fixtures |
 | How decisions are made | `domain/candidates.py::rank` |
 | What actions are allowed | Exactly three plan types |
 | When human approval applies | `services/gate.py`; approval bound to proposal version. **F8** shows the opposite case: inside delegated authority, the gate authorises and the server executes with no human |

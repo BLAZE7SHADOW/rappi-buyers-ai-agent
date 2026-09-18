@@ -9,7 +9,7 @@ Run directly with::
 
     python -m app.db.seed
 
-which resets the database and loads all six fixtures, printing one summary
+which resets the database and loads all eight fixtures, printing one summary
 line per fixture.
 """
 
