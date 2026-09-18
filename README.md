@@ -81,6 +81,52 @@ flowchart TD
 The loop at the bottom is the point: a case is not finished when the agent acts, it is
 finished when the *outcome* has been checked.
 
+### When the agent needs you: the buyer question loop
+
+Sometimes a plan depends on a fact no system of record holds — sales mention a bulk
+order that is not booked, or a promotion nobody has loaded yet. The agent cannot verify
+it, and guessing either way is a decision it has no business making alone. What happens
+then:
+
+```mermaid
+sequenceDiagram
+    participant B as Buyer
+    participant A as Agent
+    participant G as Policy gate
+    participant C as Case
+
+    A->>G: propose_plan (depends on an unconfirmed input)
+    G->>G: plan the horizon BOTH ways and compare
+    G->>C: orders differ materially → state = awaiting_buyer
+    C-->>B: question, with each option already costed
+    B->>C: answer (click an option, or type your own)
+    C->>C: answer recorded · state = investigating · Next: Agent
+    B->>A: Run live agent
+    A->>A: reads the answer as evidence, like any other fact
+    A->>G: propose_plan, sized to the answer
+```
+
+Three things in that sequence are worth knowing, because they are easy to get wrong:
+
+1. **The stop is policy, not a mood.** `domain/sensitivity.py` plans the horizon with
+   and without the unconfirmed input; if the two require materially different orders,
+   `services/gate.py` halts the case — whether or not the model thought to ask. The
+   agent also has its own `ask_buyer` tool and noticing earlier is better, but nothing
+   depends on it doing so. Both routes produce the same question through
+   `services/interactions.py`, so the UI and audit trail cannot tell them apart.
+2. **Answering does not restart the agent by itself.** Your answer is recorded, the case
+   returns to `investigating`, and the panel reads **Next: Agent** — you press
+   `Run live agent` to continue. Runs are synchronous and this project ships with no
+   queue or worker (see [docs/LIMITATIONS.md](docs/LIMITATIONS.md)); in production this
+   is precisely where a durable-workflow engine would treat the answer as a signal and
+   resume on its own.
+3. **The answer becomes evidence, not an instruction.** The next run reads it back
+   through `get_case_context` alongside inventory and quotes, and re-plans from scratch
+   against it. Once answered, the gate stops citing that unknown, so you are never asked
+   the same question twice.
+
+You can watch the whole loop in [demo clip 2](#2--the-agent-stops-and-asks-because-the-answer-changes-the-order).
+
 ### Your first run
 
 After [Setup](#setup) below, in order:
