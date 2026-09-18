@@ -142,8 +142,8 @@ Approve. The verdict comes back **PASS**, and the case resolves.
 
 Either point at `backend/evals/report.md`:
 
-> "Six scenarios, scored on the assignment's own six evaluation questions. All six
-> pass against the live model, and the runs are recorded so they replay
+> "Eight scenarios, scored on the assignment's own six evaluation questions. All
+> eight pass against the live model, and the runs are recorded so they replay
 > deterministically without an API key."
 
 Or demonstrate recovery directly — set supplier behaviour to **`timeout_after_success`**
