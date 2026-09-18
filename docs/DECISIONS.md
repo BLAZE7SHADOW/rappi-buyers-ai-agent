@@ -57,12 +57,15 @@ handling. Five half-wired actions would demonstrate less than three complete one
 The agent may *name* an unsupported intervention as needed external coordination; it
 must never claim to have executed one.
 
-## Nine tools, not twelve
+## Nine tools, and none that can execute a purchase
 
-An earlier design had twelve. `submit_plan` was removed entirely — execution is
-server-triggered after authorisation, which is what makes "the agent cannot approve
-itself" architectural rather than a prompt instruction. Others were merged where the
-split bought nothing.
+Six read evidence, one computes, two write to the case. There is deliberately **no
+execute tool**: execution is server-triggered once the policy gate has authorised the
+plan.
+
+That absence is the point. "The agent cannot approve its own spending" is a property of
+the architecture — there is no call it could make to do so — rather than an instruction
+in a prompt that a determined model might talk itself around.
 
 ## One SKU and one node per case
 
@@ -75,9 +78,9 @@ Pretending to solve it with a weighted score would be worse than declining to.
 
 ## Edge cases documented rather than implemented
 
-An earlier design enumerated 29. About ten are implemented and tested; the rest are
-recorded in [LIMITATIONS.md](LIMITATIONS.md). A register of edge cases that are
-listed but not handled is a liability, not an asset.
+About ten edge cases are implemented and tested; the rest are recorded in
+[LIMITATIONS.md](LIMITATIONS.md). A register of edge cases that are listed but not
+handled is a liability, not an asset.
 
 ## Assertions on outcomes, not traces
 
