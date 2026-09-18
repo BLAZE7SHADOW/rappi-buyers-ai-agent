@@ -18,6 +18,94 @@ tool that can execute a purchase; proposal terms are grounded in authoritative
 records and checked by `simulate_plan`; and the validator that judges an outcome
 never sees what the agent claimed.
 
+## What this is, and how you use it
+
+### The problem
+
+A buyer at a company like Rappi receives more replenishment recommendations than they
+can possibly check. Each one looks like a single number — *"order 800 units"* — but
+deciding whether that number is right means pulling evidence from several systems:
+what stock is actually sellable today, what demand is forecast, what is already on
+order and when it lands, what the budget and the warehouse can absorb, and which
+suppliers can deliver in time. Doing that properly takes a person twenty minutes.
+Skipping it is how a company buys stock it does not need, or misses a stockout it
+could have prevented.
+
+This agent does that investigation, decides what should actually happen, acts when the
+decision is inside its delegated authority, and then **checks whether the action
+worked**. The buyer's job becomes reviewing an argued case, not assembling one.
+
+### The flow
+
+```mermaid
+flowchart TD
+    A[Buyer opens the exception queue] --> B{Pick a case}
+    B -->|Existing case| C[Read the exposure and supply picture]
+    B -->|New case| N[Submit a recommendation via New case] --> C
+    C --> D[Run the agent]
+    D --> E[Watch the investigation path build<br/>each step states why it was chosen]
+    E --> F[Read the proposal, its reasons<br/>and the policy gate decision]
+    F --> G{Who may authorise?}
+    G -->|Inside delegated authority| H[Server executes automatically]
+    G -->|Above the limit, or a decision-critical unknown| I[Buyer approves or declines]
+    G -->|Hard constraint fails| J[Blocked · escalated]
+    I --> H
+    H --> K[Independent validator checks the result]
+    K -->|PASS| L[Case resolved]
+    K -->|PARTIAL or FAIL| M[Case reopens, replan count + 1] --> D
+```
+
+The loop at the bottom is the point: a case is not finished when the agent acts, it is
+finished when the *outcome* has been checked.
+
+### Your first run
+
+After [Setup](#setup) below, in order:
+
+1. **Open the queue** at `http://localhost:5173`. Every case shows its incoming signal,
+   projected exposure, the agent's decision so far, and where it sits in the workflow.
+2. **Open `F1 · Sparkling Water`** — the case where the recommendation is wrong.
+3. **Read the supply picture** before running anything, so you can judge the agent's
+   answer against your own.
+4. **Click `Run live agent`** (or `Replay recorded agent` if you have no API key — it
+   exercises the same tools, gate, executor and validator, only the model's turns come
+   from disk). Watch the investigation path build; each row states the business question
+   it set out to answer and what it found.
+5. **Read the proposal** and the gate decision. F1 requires your approval because the
+   $450 expedite fee exceeds the $250 autonomy limit.
+6. **Click `Approve and execute`.**
+7. **Read the verdict.** The supplier will confirm only part of the order, so the case
+   reopens.
+8. **Run the agent again.** It now plans against what actually happened. Approve, and
+   the second verdict comes back PASS.
+
+![The buyer exception queue](docs/screenshots/01-exception-queue.png)
+
+*The queue is an exception list, not a chatbot. `Agent decision` and the PASS badge mean
+the reviewer can see, without opening anything, which cases were handled and which
+still need them. The `1 replan` counter on F1 records that the first attempt did not
+work.*
+
+### The happy path, in one case
+
+If you want to see a complete successful cycle before meeting the complicated one, open
+**F8 · Paper Towels**. It is a small, cheap, fully covered replenishment: the agent
+investigates, proposes a 550-unit order for $1,650, the gate finds it inside delegated
+authority and the server executes it with no human involved, and the validator confirms
+the coverage gap closed. Start to finish in about forty seconds, no approval step —
+and still independently checked.
+
+### Raising your own case
+
+`New case` lets you submit a recommendation for any product and node. The form previews
+what the system already knows and will not let you edit it:
+
+![Opening a purchasing case](docs/screenshots/02-buyer-intake.png)
+
+*You supply the quantity and the business reason. Inventory, forecast, budget, storage,
+supplier coverage and the evidence snapshot date are read from system records — a
+requester cannot tune the constraints to make their own recommendation look feasible.*
+
 ## The artifact that matters: the validation verdict
 
 Every executed action produces one of these. It is computed from the authorised plan
@@ -62,6 +150,11 @@ The system recommends buying **800 units** of SKU-1001. The agent finds:
 | Existing PO-501 | 2,000 units, confirmed, arriving day 14 |
 | Projected shortage | **400 units**, starting 2026-09-27 |
 
+![The supply picture](docs/screenshots/04-supply-picture.png)
+
+*The three calculations a buyer would otherwise do by hand. Note the middle card: the
+volume balance is fine. Nothing in the raw recommendation would have told you that.*
+
 Total supply (3,000) already exceeds total demand (2,800). **This is a timing
 problem, not a volume problem.** The engine ranks every option:
 
@@ -94,6 +187,20 @@ XX     0 unmet  $12,000.00  Order 800 units from SUP-A  ← still over budget
 *Now* a new purchase order is genuinely justified. SUP-A closes the gap; SUP-B is
 cheaper but leaves 100 units unserved. The agent orders 600 from SUP-A, the buyer
 approves, and validation returns **PASS**. Two orders, zero duplicates.
+
+![The case after resolution, showing the replan investigation path](docs/screenshots/03-case-overview-and-path.png)
+
+*The case after both rounds. The workflow bar has reached Resolve, and the path shown
+is **Replan 1** — the second investigation, not the first. Every step records the
+business question it set out to answer and what it found, because the sequence is the
+model's own choice and a buyer needs to see what was actually checked.*
+
+![The 28-day projection after both orders](docs/screenshots/05-28-day-projection.png)
+
+*Both receipts on one timeline: +600 on Sep 24 from the replan, +1,200 on Sep 27 from
+the partially-confirmed expedite. Unfilled demand 0, shortage days 0. This is the same
+projection engine the plan was chosen with, so the chart and the decision cannot
+disagree.*
 
 One narrative covers Scenario 1 (accept/modify/reject/investigate), Scenario 2
 (supplier cannot fulfil), Scenario 4 (a constraint blocks the recommendation), and
@@ -234,6 +341,15 @@ explaining why the obvious choice was unavailable is most of the value.
 Three levers exist and no more: `keep_plan`, `create_po`, `expedite_po`. Keeping the
 action set this small means every action the agent can take is one a human can audit.
 
+![The agent's decision and the approval gate](docs/screenshots/06-agent-decision-and-gate.png)
+
+*What a buyer is actually asked to approve. The amber panel is the **gate** speaking,
+not the agent: approval is required because $9,000 exceeds the $2,000 autonomy limit,
+and it says so with the numbers. Below it, the four reasons are the argument, and the
+eight constraint checks are the proof — each naming the value it was tested against
+(`$9,000.00 within $9,550.00 available`), so a reviewer can disagree with a specific
+number rather than with a verdict.*
+
 ## Validation, in three layers
 
 1. **Proposal validity** — sufficient evidence, hard constraints pass. Checked before
@@ -246,6 +362,28 @@ action set this small means every action the agent can take is one a human can a
 
 A pending acknowledgement is reported as *awaiting confirmation*, never as coverage.
 Supplier confirmation and physical receipt are different milestones.
+
+### What that looks like when the action fails
+
+![PARTIAL verdict](docs/screenshots/07-validation-partial.png)
+
+*The expedite was authorised for 2,000 units; the supplier confirmed 1,200 and
+cancelled 800. Three execution checks pass — right supplier, right date, right cost —
+and that is exactly why the fourth matters: **Qty Matches Authorized** fails, and the
+business check **Coverage Gap Closed** fails with 600 units still unserved from Oct 9.
+Verdict `PARTIAL`, follow-up `Reopened Case`.*
+
+*This is computed from the authorised plan and the persisted state. The validator never
+reads what the agent claimed — if the agent had reported complete success, this panel
+would still say PARTIAL.*
+
+### And when it works
+
+![PASS verdict](docs/screenshots/08-validation-pass.png)
+
+*The replan's 600-unit order, confirmed in full. Expected and actual agree on every
+field, all deltas are zero, the coverage gap is closed, and the case resolves. The same
+three layers ran — a PASS is a result, not the absence of checking.*
 
 ## Requirements traceability
 
@@ -297,6 +435,9 @@ Supplier confirmation and physical receipt are different milestones.
 - [docs/DEMO.md](docs/DEMO.md) — repeatable reviewer walkthrough
 - [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — what this does not model
 - [backend/evals/report.md](backend/evals/report.md) — observed results against the brief’s six questions
+- [docs/media/](docs/media) — three silent recordings of live runs, described in
+  [The three demo recordings](#the-three-demo-recordings)
+- [docs/screenshots/](docs/screenshots) — the interface stills used throughout this README
 
 ## Submission checklist
 
@@ -305,13 +446,91 @@ Supplier confirmation and physical receipt are different milestones.
 | Complete source code | `backend/`, `frontend/`, `fixtures/` |
 | Setup and run instructions | [Setup](#setup), including supported runtimes and no-key replay |
 | Architecture diagram | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#components) |
-| Description of the approach | [The idea](#the-idea-in-one-paragraph), [How the agent works](#how-the-agent-works), [docs/DECISIONS.md](docs/DECISIONS.md) |
+| Description of the approach | [The idea](#the-idea-in-one-paragraph), [What this is and how you use it](#what-this-is-and-how-you-use-it) with the user-flow diagram, [How the agent works](#how-the-agent-works), [How decisions are made](#how-decisions-are-made), [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Test scenarios and evaluation | [Test fixtures](#test-fixtures), `backend/evals/`, [evaluation report](backend/evals/report.md) |
 | Mock APIs and datasets | `backend/app/integrations/mock_supplier.py`, `fixtures/`, recorded runs in `backend/evals/recordings/` |
-| Decision validation explanation | [Validation](#validation-in-three-layers), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), `backend/app/services/validator.py` |
-| Working demo | Local application at `http://localhost:5173`; walkthrough in [docs/DEMO.md](docs/DEMO.md) |
+| Decision validation explanation | [Validation, in three layers](#validation-in-three-layers) — with the [PARTIAL](docs/screenshots/07-validation-partial.png) and [PASS](docs/screenshots/08-validation-pass.png) verdicts shown; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), `backend/app/services/validator.py` |
+| Working demo | Local application at `http://localhost:5173`; [three recorded live runs](#the-three-demo-recordings) in [docs/media/](docs/media); [first-run steps](#your-first-run); narrated walkthrough script in [docs/DEMO.md](docs/DEMO.md) |
 | Environment template | [.env.example](.env.example) with provider, database, autonomy and loop settings |
 | Secret hygiene | `.env`, database files, virtual environments and build outputs are ignored by `.gitignore` |
+
+## The three demo recordings
+
+Three silent screen recordings in [`docs/media/`](docs/media), each a **live model
+run** against a freshly seeded database — not a replay, and not edited except to trim
+the browser chrome. GitHub does not play a repo-relative `.mp4` inline, so these are
+download links; clone the repo or click through to view them.
+
+### 1 · The recommendation is wrong, and the first fix does not work
+
+**[`1-f1-reject-partial-replan-pass.mp4`](docs/media/1-f1-reject-partial-replan-pass.mp4)** · 6 min 15 s · F1
+
+The longest clip, and the one that shows the whole thesis. In order:
+
+1. The case opens on **400 units of demand may go unfilled**, and the supply picture
+   resolves 1,200 on hand into 1,000 usable — 150 reserved, 50 quarantined.
+2. `Run live agent`. The investigation path builds on screen, a step at a time: read the
+   signal, check sellable inventory, review open orders, compare suppliers, check
+   constraints, compare candidate actions. A live row reads *"Choosing the next
+   investigation step — the agent is deciding whether it has enough evidence, needs
+   another check, should ask the buyer, or can propose an action."* Nothing here is a
+   fixed checklist; it is the model's own sequence.
+3. The proposal comes back **reject** — the recommended 800 units is infeasible on
+   budget — with the action **expedite PO-501** for $450.
+4. The gate requires approval: the $450 fee exceeds the $250 expedite limit. Approved.
+5. **The supplier confirms only 1,200 of 2,000 units** and cancels the rest. The verdict
+   panel shows expected vs actual vs delta, `Qty Matches Authorized` red,
+   `Coverage Gap Closed` red, **600 units unmet starting 2026-10-09**, verdict
+   **PARTIAL**, follow-up *Reopened Case*. The projection chart grows a shortage window.
+6. `Run live agent` again. This run is labelled **Replan 1**, and it plans against what
+   actually happened rather than what was hoped for.
+7. A 600-unit SUP-A order at $9,000 is proposed, approved, confirmed in full — verdict
+   **PASS**, and the case reaches *Resolved* with the workflow bar complete.
+
+Two orders, no duplicates, and the second order exists only because the system checked
+its own work.
+
+### 2 · The agent stops and asks, because the answer changes the order
+
+**[`2-f7-agent-asks-the-buyer.mp4`](docs/media/2-f7-agent-asks-the-buyer.mp4)** · 4 min 08 s · F7
+
+Sales have mentioned a possible 500-unit corporate order that exists in no forecast, no
+promotion and no purchase order. In the clip:
+
+1. The agent investigates as usual, then the case stops at **`awaiting_buyer`** instead
+   of proposing.
+2. The pending question shows the horizon costed **both ways**, with the consequence of
+   each spelled out: *Unconfirmed — order 1,300 units ($11,700), covering baseline
+   forecast and safety stock* versus *Confirmed — order 1,800 units ($16,200), covering
+   the corporate order as well.*
+3. `Confirmed` is chosen, and the agent resumes. Its stated first reason becomes
+   **"Buyer confirmed the 500-unit corporate bulk order, increasing the required
+   purchase quantity from 1,300 to 1,800 units."** The order follows the answer.
+4. The gate requires approval — $16,200 exceeds the $2,000 autonomy limit — and names
+   both reasons: the spend, *and* that the order depended on an unconfirmed input.
+   Approved, executed, validated, resolved.
+
+What the clip cannot show, and is the important part: **the stop is not the model
+choosing to be careful.** The plan is simulated under both assumptions and the gate
+halts the case when the two require materially different orders, whether or not the
+agent thought to ask. Before it worked this way, the model asked in about half of runs.
+
+### 3 · The agent acts alone, and is still checked
+
+**[`3-f8-autonomous-within-authority.mp4`](docs/media/3-f8-autonomous-within-authority.mp4)** · 2 min 26 s · F8
+
+The opposite case, and the reason the previous one is not just caution:
+
+1. A small replenishment — 550 units, $1,650. The agent investigates and proposes.
+2. **No approval step appears.** The green panel reads *"Authorized automatically under
+   delegated authority: $1,650.00 spend, $0.00 fees, no residual shortage"*, followed by
+   the line that matters — *the policy gate ran server-side and granted authority; the
+   agent has no tool that can execute a purchase.*
+3. Eight constraints verified, badges reading `Executed` and `Within autonomy limits`.
+4. The validator still runs, independently, and confirms the coverage gap closed.
+
+Autonomy here is a policy outcome with its reasoning on screen, not an absence of
+policy.
 
 ## Modelling assumptions
 
