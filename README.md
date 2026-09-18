@@ -4,6 +4,29 @@ An agent that reviews a purchasing situation, investigates it, decides what shou
 happen, executes within delegated authority, and then **checks whether what it did
 actually worked**.
 
+## Where each required artifact lives
+
+Every item the brief asks for, in its order, with the file that holds it.
+
+| # | Required artifact | File or directory | What you will find there |
+|---|---|---|---|
+| 1 | Complete source code | `backend/` · `frontend/` · `fixtures/` | FastAPI backend, React workbench, scenario data |
+| 2 | README with setup and run instructions | **[`README.md` → Setup](#setup)** | Prerequisites, install, configure, seed, run, plus a troubleshooting table |
+| 3 | Architecture diagram | **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#components)** | Mermaid component diagram, layering rules, 18-table data model, durable-execution design |
+| 4 | Description of your approach | **[`docs/DECISIONS.md`](docs/DECISIONS.md)** + [What this is and how you use it](#what-this-is-and-how-you-use-it), [How the agent works](#how-the-agent-works), [How decisions are made](#how-decisions-are-made) | The reasoning, the user-flow diagram, and what was deliberately cut |
+| 5 | Test scenarios and evaluation approach | `fixtures/__init__.py` · `backend/evals/` · **[`backend/evals/report.md`](backend/evals/report.md)** | Eight scenarios, the scoring harness, and observed results from a live run |
+| 6 | Mock APIs, datasets, supporting services | `backend/app/integrations/mock_supplier.py` · `fixtures/` · `backend/evals/recordings/` | Mock supplier with its own ledger, seed data, recorded model runs for no-key replay |
+| 7 | How the agent's decisions are validated | `backend/app/services/validator.py` + **[Validation, in three layers](#validation-in-three-layers)** | The three checking layers, shown with a failing and a passing verdict |
+| 8 | Working demo | **[`docs/media/`](docs/media)** · [`docs/DEMO.md`](docs/DEMO.md) | Three recorded live runs (described [here](#the-three-demo-recordings)), the local app, and a walkthrough script |
+| 9 | `.env.example` | **[`.env.example`](.env.example)** | Provider, model, database, autonomy limits, loop bounds |
+
+**No secrets are committed.** `.env`, database files, virtual environments and build
+output are excluded by [`.gitignore`](.gitignore); `.env.example` ships empty key
+placeholders only.
+
+**Commit history is intact** — the work is in small, grouped commits rather than one
+squashed drop.
+
 ## The idea in one paragraph
 
 > The agent **proposes**. A deterministic engine decides **feasibility**. A policy
@@ -229,39 +252,108 @@ known evidence and expected outcomes.
 
 ## Setup
 
-Requires **Python 3.11+** and **Node 22.12+** (required by the frontend test and
-build toolchain).
+### Prerequisites
+
+| Requirement | Version | Check with |
+|---|---|---|
+| Python | 3.11 or newer | `python3 --version` |
+| Node.js | 22.12 or newer — required by the frontend build toolchain | `node --version` |
+| npm | ships with Node | `npm --version` |
+
+No database server, message broker or container runtime is needed. SQLite is created
+on first run.
+
+### Step 1 — Clone and install
+
+Run everything from the repository root unless a step says otherwise.
 
 ```bash
 git clone https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent.git
 cd rappi-buyers-ai-agent
 
-python3.11 -m venv .venv
-source .venv/bin/activate       # macOS / Linux; your prompt will show (.venv)
+python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
-
-cp .env.example .env          # then add your GEMINI_API_KEY
 ```
 
-The agent needs an LLM key for live runs. Gemini is the default; Anthropic works by
-setting both `AI_PROVIDER` and an Anthropic `AI_MODEL`. Without a key, the browser
-offers an explicitly labelled replay of the recorded model runs so a reviewer can
-still exercise the real tools, gate, executor, validator, and F1 replan loop.
+On Windows the virtual environment puts binaries in a different folder — use
+`python -m venv .venv` then `.venv\Scripts\pip install -r backend\requirements.txt`,
+and substitute `.venv\Scripts\python` for `.venv/bin/python` in every command below.
 
-### Run
+*(Activating the venv with `source .venv/bin/activate` is optional. Every command here
+calls `.venv/bin/python` explicitly so it works either way.)*
 
-Seed once, then start the backend and frontend in separate terminals:
+### Step 2 — Configure the environment
 
 ```bash
-# 1. Seed the demo data
-cd backend && PYTHONPATH=..:. ../.venv/bin/python -m app.db.seed && cd ..
-
-# 2. Backend  → http://127.0.0.1:8000
-.venv/bin/python -m uvicorn app.main:app --app-dir backend --port 8000 --host 127.0.0.1
-
-# 3. Frontend → http://localhost:5173
-cd frontend && npm ci && npm run dev
+cp .env.example .env
 ```
+
+Then open `.env` and paste your key into `GEMINI_API_KEY=`. Gemini is the default;
+Anthropic works by setting `AI_PROVIDER=anthropic`, an Anthropic `AI_MODEL`, and
+`ANTHROPIC_API_KEY`.
+
+**No key? The demo still runs.** Leave the key blank and use the
+`Replay recorded agent` button in the UI, or `evals.run_evals` without `--live`. Replay
+plays back recorded model turns from `backend/evals/recordings/` while exercising the
+real tools, policy gate, executor, validator and the F1 replan loop — only the model's
+own turns come from disk. Every default in `.env.example` other than the keys is
+already set to a working value.
+
+### Step 3 — Seed the demo data
+
+```bash
+cd backend && PYTHONPATH=..:. ../.venv/bin/python -m app.db.seed && cd ..
+```
+
+This drops and recreates all 18 tables and loads the eight scenarios. You should see
+one line per fixture:
+
+```
+F1: case=CASE-F1 sku=SKU-1001 node=NODE-BOG-F1 state=investigating expected_disposition=reject
+...
+F8: case=CASE-F8 sku=SKU-1008 node=NODE-BOG-F8 state=investigating expected_disposition=accept
+```
+
+Re-run this command any time to reset the demo to a clean state.
+
+### Step 4 — Start the backend
+
+**In a first terminal**, from the repository root:
+
+```bash
+.venv/bin/python -m uvicorn app.main:app --app-dir backend --port 8000 --host 127.0.0.1
+```
+
+Expect `Uvicorn running on http://127.0.0.1:8000`. Leave it running. Confirm with
+`curl http://127.0.0.1:8000/api/health` in another shell if you want.
+
+### Step 5 — Start the frontend
+
+**In a second terminal**, from the repository root:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Expect `➜  Local:   http://localhost:5173/`. Leave it running.
+
+### Step 6 — Open the app
+
+Go to **http://localhost:5173**. You should see the exception queue with eight cases.
+Follow [Your first run](#your-first-run) from there.
+
+### If something goes wrong
+
+| Symptom | Cause and fix |
+|---|---|
+| `Port 8000 is already in use` | Another process holds it. Start uvicorn with `--port 8001` and change the proxy `target` in `frontend/vite.config.ts` to match — the frontend reaches the API through that proxy, not through an environment variable. |
+| Frontend starts on port 5174 | 5173 was taken. Vite prints the port it actually chose — use that URL. |
+| Queue is empty | The seed in Step 3 did not run, or ran from the wrong directory. It must run from `backend/`. |
+| `Run live agent` is disabled | No API key was loaded. Check with `curl http://127.0.0.1:8000/api/health` — `llm_key_present` tells you what the backend actually sees. Add the key to `.env`, restart the backend, or use `Replay recorded agent`. |
+| Frontend build or test fails on Node | Node older than 22.12. Check with `node --version`. |
+| `ModuleNotFoundError: app` | Running a backend command without `PYTHONPATH=..:.` from `backend/`, or using system Python instead of `.venv/bin/python`. |
 
 ### Tests and evaluations
 
@@ -438,21 +530,6 @@ three layers ran — a PASS is a result, not the absence of checking.*
 - [docs/media/](docs/media) — three silent recordings of live runs, described in
   [The three demo recordings](#the-three-demo-recordings)
 - [docs/screenshots/](docs/screenshots) — the interface stills used throughout this README
-
-## Submission checklist
-
-| Required artifact | Included at |
-|---|---|
-| Complete source code | `backend/`, `frontend/`, `fixtures/` |
-| Setup and run instructions | [Setup](#setup), including supported runtimes and no-key replay |
-| Architecture diagram | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#components) |
-| Description of the approach | [The idea](#the-idea-in-one-paragraph), [What this is and how you use it](#what-this-is-and-how-you-use-it) with the user-flow diagram, [How the agent works](#how-the-agent-works), [How decisions are made](#how-decisions-are-made), [docs/DECISIONS.md](docs/DECISIONS.md) |
-| Test scenarios and evaluation | [Test fixtures](#test-fixtures), `backend/evals/`, [evaluation report](backend/evals/report.md) |
-| Mock APIs and datasets | `backend/app/integrations/mock_supplier.py`, `fixtures/`, recorded runs in `backend/evals/recordings/` |
-| Decision validation explanation | [Validation, in three layers](#validation-in-three-layers) — with the [PARTIAL](docs/screenshots/07-validation-partial.png) and [PASS](docs/screenshots/08-validation-pass.png) verdicts shown; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), `backend/app/services/validator.py` |
-| Working demo | Local application at `http://localhost:5173`; [three recorded live runs](#the-three-demo-recordings) in [docs/media/](docs/media); [first-run steps](#your-first-run); narrated walkthrough script in [docs/DEMO.md](docs/DEMO.md) |
-| Environment template | [.env.example](.env.example) with provider, database, autonomy and loop settings |
-| Secret hygiene | `.env`, database files, virtual environments and build outputs are ignored by `.gitignore` |
 
 ## The three demo recordings
 
