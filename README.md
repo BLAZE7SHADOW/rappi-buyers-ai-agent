@@ -535,12 +535,18 @@ three layers ran — a PASS is a result, not the absence of checking.*
 
 Three silent screen recordings in [`docs/media/`](docs/media), each a **live model
 run** against a freshly seeded database — not a replay, and not edited except to trim
-the browser chrome. GitHub does not play a repo-relative `.mp4` inline, so these are
-download links; clone the repo or click through to view them.
+the browser chrome. **Click any thumbnail to play.**
+
+<!-- To embed real inline players: drag each .mp4 into a GitHub issue comment, copy the
+     https://github.com/user-attachments/assets/<hash> URL it produces, and replace the
+     thumbnail link below with:  <video src="<that URL>" controls></video>
+     GitHub only renders a player for attachment URLs, never for repo-relative paths. -->
 
 ### 1 · The recommendation is wrong, and the first fix does not work
 
-**[`1-f1-reject-partial-replan-pass.mp4`](docs/media/1-f1-reject-partial-replan-pass.mp4)** · 6 min 15 s · F1
+[![Play the F1 recording — the PARTIAL verdict](docs/media/poster-1-f1.png)](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/1-f1-reject-partial-replan-pass.mp4)
+
+▶ **[Play the full clip](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/1-f1-reject-partial-replan-pass.mp4)** · 6 min 15 s · fixture F1 · live model run
 
 The longest clip, and the one that shows the whole thesis. In order:
 
@@ -567,9 +573,22 @@ The longest clip, and the one that shows the whole thesis. In order:
 Two orders, no duplicates, and the second order exists only because the system checked
 its own work.
 
+**What is handling each step**
+
+| On screen | Underneath |
+|---|---|
+| The path fills in, one row at a time | `app/agent/loop.py` — the model chooses each tool from the last result; the tool layer **refuses** any evidence call that does not state the business question it answers |
+| Candidate actions compared, the 800 struck out | `domain/candidates.py::rank` — service target, then excess, then cost; infeasible options are kept with the constraint that bound them |
+| "Buyer approval required because $450 exceeds the $250 limit" | `services/gate.py` — deterministic policy decides who may authorise; the model has no say and no tool that can execute |
+| Supplier confirms 1,200 of 2,000 | `integrations/mock_supplier.py` — commits to its own ledger, in its own transaction, keyed by idempotency key |
+| PARTIAL, with `Qty` and `Coverage Gap` red | `services/validator.py` — computed from the authorised plan and persisted state; it never reads the agent's report |
+| Case reopens, `Replan 1` | `services/proposals.py` routes the verdict and increments the replan counter; the next run plans against the new state |
+
 ### 2 · The agent stops and asks, because the answer changes the order
 
-**[`2-f7-agent-asks-the-buyer.mp4`](docs/media/2-f7-agent-asks-the-buyer.mp4)** · 4 min 08 s · F7
+[![Play the F7 recording — the buyer question](docs/media/poster-2-f7.png)](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/2-f7-agent-asks-the-buyer.mp4)
+
+▶ **[Play the full clip](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/2-f7-agent-asks-the-buyer.mp4)** · 4 min 08 s · fixture F7 · live model run
 
 Sales have mentioned a possible 500-unit corporate order that exists in no forecast, no
 promotion and no purchase order. In the clip:
@@ -592,9 +611,21 @@ choosing to be careful.** The plan is simulated under both assumptions and the g
 halts the case when the two require materially different orders, whether or not the
 agent thought to ask. Before it worked this way, the model asked in about half of runs.
 
+**What is handling each step**
+
+| On screen | Underneath |
+|---|---|
+| The unconfirmed signal is read as data, not prose | `fixtures/__init__.py` carries it as a structured `unverified_demand_signal`, so something other than the model can act on it |
+| The horizon costed both ways | `domain/sensitivity.py` — plans twice, once with the signal applied as a demand override, and compares the required order |
+| "Materially different" | A `PolicyConfig` threshold — proportional to the order with a floor — so the line is configuration, not a magic number |
+| The case stops at `awaiting_buyer` | `services/gate.py` raises `decision_sensitive_to_unconfirmed_input`; `services/interactions.py` opens the question and moves the case in the same transaction |
+| Answering resumes the run | The gate stops citing the input once it has been answered, so the buyer is never asked twice |
+
 ### 3 · The agent acts alone, and is still checked
 
-**[`3-f8-autonomous-within-authority.mp4`](docs/media/3-f8-autonomous-within-authority.mp4)** · 2 min 26 s · F8
+[![Play the F8 recording — authorised automatically](docs/media/poster-3-f8.png)](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/3-f8-autonomous-within-authority.mp4)
+
+▶ **[Play the full clip](https://github.com/BLAZE7SHADOW/rappi-buyers-ai-agent/blob/main/docs/media/3-f8-autonomous-within-authority.mp4)** · 2 min 26 s · fixture F8 · live model run
 
 The opposite case, and the reason the previous one is not just caution:
 
@@ -605,6 +636,15 @@ The opposite case, and the reason the previous one is not just caution:
    agent has no tool that can execute a purchase.*
 3. Eight constraints verified, badges reading `Executed` and `Within autonomy limits`.
 4. The validator still runs, independently, and confirms the coverage gap closed.
+
+**What is handling each step**
+
+| On screen | Underneath |
+|---|---|
+| No approval step appears | `services/gate.py` returns `AUTONOMOUS` — spend inside the limit, no residual shortage, evidence complete |
+| The order is placed with no human | `services/proposals.py` calls the executor directly on an autonomous decision; the agent still has no tool that can do this |
+| `Executed` · `Within autonomy limits` | The gate's own decision, recorded on the proposal and in the audit log, not a label the model wrote |
+| The verdict panel appears anyway | `services/validator.py` runs on every action regardless of who authorised it |
 
 Autonomy here is a policy outcome with its reasoning on screen, not an absence of
 policy.
